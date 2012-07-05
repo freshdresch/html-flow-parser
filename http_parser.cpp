@@ -20,6 +20,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <list>
 #include <map>
 #include <stdint.h>
 #include <cstdlib>
@@ -53,6 +54,10 @@ struct gzip_trailer
 #define CHUNKED    2
 #define BOTH       3
 
+// Either make the host global or make it an argument through 
+// 3 functions where it's only needed in the last one.
+// Shitty, I know...
+string host;
 
 int parseHTML(char *buf, size_t buf_len)
 {
@@ -60,6 +65,7 @@ int parseHTML(char *buf, size_t buf_len)
     forward_list<string>::iterator it;
     istringstream iss(buf);
     string str;
+    size_t offset;
 
     // Put each line in the forward iterator.
     // I put the buffer in the string stream to have access to getline.
@@ -76,9 +82,25 @@ int parseHTML(char *buf, size_t buf_len)
     else
         return PARSE_FAILURE;
     
-    // Print the list of html lines.
+    // // Print the list of html lines.
+    // for (it = page.begin(); it != page.end(); ++it) 
+    //     cout << *it << endl;
+
+    //collect all of the links in a page
+    list<string> links;
+    list<string>::iterator itr;
     for (it = page.begin(); it != page.end(); ++it) 
-        cout << *it << endl;
+    {
+        offset = it->find("href=\""); 
+        if (offset != string::npos)
+            links.push_back(*it);
+    }
+
+    // for (itr = links.begin(); itr != links.end(); ++it)
+    //     cout << *itr << endl;
+    cout << "num links: " << links.size() << endl;
+    // check if a lot of the links navigate outside of the website
+    
 
     return PARSE_SUCCESS;
 }
@@ -262,7 +284,10 @@ int parseHTTP(ifstream& in, map<string, string>& header)
 int main(int argc, char **argv) 
 {
     string line; 
+    string host;
     size_t offset;
+    size_t host_off;
+    bool need_host = true;
     
     // If argc is two, a pcap input file should be given.
     if (argc == 2)
@@ -277,8 +302,21 @@ int main(int argc, char **argv)
             {
                 // Search for the "HTTP/1.1 200 OK" line.
                 getline(in, line);
-                offset = line.find("HTTP/1.1 200 OK");
 
+                if (need_host) 
+                {
+                    host_off = line.find("Host: ");
+                    
+                    if (host_off != string::npos)
+                    {
+                        host = line.substr(host_off + 6);
+                        need_host = false;
+                    }
+                }
+
+
+                offset = line.find("HTTP/1.1 200 OK");
+                
                 if (offset != string::npos) 
                 {
                     // We found the reply.
@@ -293,6 +331,12 @@ int main(int argc, char **argv)
                         header[line.substr(0, offset)] = line.substr(offset + 2);
                         getline(in, line);
                     }
+
+                    // Print the http header
+                    // map<string, string>::iterator it;
+                    // for (it = header.begin(); it != header.end(); ++it)
+                    //     cout << it->first << ": " << it->second << endl;
+                    // cout << endl;
 
                     // Send the HTTP header and our ifstream to parseHTTP.
                     parseHTTP(in, header);

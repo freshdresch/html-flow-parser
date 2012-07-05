@@ -1,4 +1,6 @@
 
+Need to determine which IP is inbound and which is inbound, so we can parse the ones with GET requests first so we can get the url. Unless there's another way to get the hostname.
+
 Work out return values for the two cases in the http parsing.
 
 I don't like that we call tcpflow instead of http_parser, even though http_parser is the whole point of the program.
