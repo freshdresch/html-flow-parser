@@ -1,0 +1,6 @@
+
+Work out return values for the two cases in the http parsing.
+
+I don't like that we call tcpflow instead of http_parser, even though http_parser is the whole point of the program.
+
+Try to avoid the hardcoded directory.
