@@ -299,13 +299,20 @@ int main(int argc, char **argv)
         char port[5];
 
         /*
+         * Eliminate some magic numbers
+         * I did have 5 as a const size_t, but it threw a warning for strncpy...
+         * Live with the magic number. Spoilers: it's the length of a port number.
+         */
+        const int tcp_port = 80;
+
+        /*
          * Check the destination port of the first file.
          * If it is 80, then it's the outbound file.
          * If not, then it's the inbound file.
          * Set the file's argument number accordingly.
          */
         strncpy(port, argv[1] + strlen(argv[1]) - 5, 5);
-        if (atoi(port) == 80) {
+        if (atoi(port) == tcp_port) {
             outbound = 1;
             inbound = 2;
         } else {
