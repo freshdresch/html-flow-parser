@@ -1,3 +1,5 @@
+Either send both of the files, or do it inside of tcpflow.  Make sure I don't repeat any code though.
+
 Decide between #define'ing the local ip so we know which one it is,
 or connecting tcpflow with pcap_wrap.  
 

@@ -1,9 +1,7 @@
 #ifndef FLOW_H
 #define FLOW_H
 
-/* 
- *
- * Notice: this file is a modified version of tcpdemux.h from the true tcpflow.
+/* Notice: this file is a modified version of tcpdemux.h from the true tcpflow.
  * I wanted to simplify it for my moderately narrow purposes.
  * The original license may be found below. -Adam Drescher
  * ---------------------------------------------------------------------
@@ -12,7 +10,6 @@
  *
  * This source code is under the GNU Public License (GPL).  See
  * LICENSE for details.
- *
  */
 
 
@@ -23,9 +20,15 @@
 
 
 #include "md5.h"
+
+#include <vector>
 #include <tr1/unordered_map>
 #include <tr1/unordered_set>
 
+
+
+// typedef for finished_flows_t in the tcpip and tcpdemux classes 
+typedef std::vector< std::pair<std::string, std::string> > finished_flows_t;
 
 /**
  * ipaddress class.
@@ -241,10 +244,10 @@ private:
     /*** End Effective C++ error suppression */
 public:
     /* instances - individual tcp/ip flows */
-    tcpip(class tcpdemux &demux_,const flow &flow_,tcp_seq isn_);    /* constructor in tcpip.cpp */
+    tcpip(class tcpdemux &demux_,const flow &flow_,tcp_seq isn_);    // constructor in tcpip.cpp
     virtual ~tcpip();			// destructor
     class tcpdemux &demux;		// our demultiplexer
-    flow	myflow;			/* Description of this flow */
+    flow	myflow;			// Description of this flow
     tcp_seq	isn;			// Flow's initial sequence number
     std::string flow_pathname;		// path where flow is stored
     FILE	*fp;			// Pointer to file storing this flow's data 
@@ -299,6 +302,7 @@ private:
 public:
     typedef std::tr1::unordered_set<class tcpip *> tcpset;
     typedef std::tr1::unordered_map<flow_addr,tcpip *,flow_addr_hash,flow_addr_key_eq> flow_map_t; // should be unordered_map
+
     std::string outdir;		        // output directory 
     uint64_t	flow_counter;	        // how many flows have we seen?
     uint64_t	packet_time;	        // monotomically increasing time
@@ -309,7 +313,10 @@ public:
     tcpset	openflows;		// the tcpip flows with open FPs 
     uint64_t	max_bytes_per_flow;
     int		max_desired_fds;
-    
+
+    // vector that holds the flows once they are assembled
+    finished_flows_t finished_flows;
+
     tcpdemux();
     void write_to_file(std::stringstream &ss,
 		       const std::string &fname,const uint8_t *base,const uint8_t *buf,size_t buflen);

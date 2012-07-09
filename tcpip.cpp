@@ -1,6 +1,4 @@
-/*
- *
- * Notice: this file is a modified version of main.cpp from the true tcpflow.
+/* Notice: this file is a modified version of main.cpp from the true tcpflow.
  * I wanted to simplify it for my moderately narrow purposes.
  * The original license may be found below. -Adam Drescher
  * ---------------------------------------------------------------------
@@ -9,7 +7,6 @@
  *
  * This source code is under the GNU Public License (GPL).  See
  * LICENSE for details.
- *
  */
 
 #include "tcpflow.h"
@@ -17,7 +14,7 @@
 #include <netinet/ip6.h>		/*  SLG */
 #include <iostream>
 #include <sstream>
-
+#include <utility>
 
 /**
  * Close all of the flows in the fd_ring
@@ -175,25 +172,63 @@ void tcpip::close_file()
 	times[0] = myflow.tstart;
 	times[1] = myflow.tstart;
 
-
 	/* close the file and remember that it's closed */
 	fflush(fp);		/* flush the file */
 	if(futimes(fileno(fp),times)){
 	    perror("futimes");
 	}
 	fclose(fp);
+        
+        // insert source-destination combo into finished_flows
+        std::string source;
+        std::string destination;
+        size_t offset;
 
-        if (fork() == 0) {
-            char *args[3];
-            // these are casted to get rid of const char* -> char* warnings
-            args[0] = (char *)"html_parser";  
-            args[1] = (char *)flow_pathname.c_str();
-            args[2] = NULL;
+        bool found = false;
+        
+        // if it can't find the '-' in the filename, something is horridly wrong
+        offset = myflow.filename().find("-");
+        if (offset == std::string::npos) {
+            perror("find");
+            exit(EXIT_FAILURE);
+        }
 
-            if (execv("/home/adam/html-flow-parser/html_parser",args) != -1) {
-                // std::cout << "Yay, did it work?!" << std::endl;
-            } else {
-                perror("execv");
+        source = myflow.filename().substr(0, offset);
+        destination = myflow.filename().substr(offset+1);
+        demux.finished_flows.push_back(std::make_pair(source,destination));
+
+        // check and see if it's paired file is also in
+        std::pair<std::string, std::string> flow_pair;
+        finished_flows_t::iterator itr;
+
+        flow_pair = std::make_pair(destination, source);
+        itr = demux.finished_flows.begin();
+
+        for (; itr != demux.finished_flows.end(); ++itr) {
+            if (*itr == flow_pair) {
+                found = true;
+                break;
+            }
+        }
+
+        if (found) {
+            if (fork() == 0) {
+                std::string file_pair = demux.finished_flows[itr - demux.finished_flows.begin()].first + 
+                    "-" + demux.finished_flows[itr - demux.finished_flows.begin()].second;
+
+                char *args[4];
+                // these are casted to get rid of const char* -> char* warnings
+                args[0] = (char *)"html_parser";  
+                args[1] = (char *)flow_pathname.c_str();
+                args[2] = (char *)file_pair.c_str();
+                args[3] = NULL;
+                
+                // TODO: figure out a relative directory scheme
+                if (execv("/home/adam/html-flow-parser/html_parser",args) != -1) {
+                    // It worked as planned
+                } else {
+                    perror("execv");
+                }
             }
         }
 

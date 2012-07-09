@@ -65,7 +65,7 @@ int parseHTML(char *buf, size_t buf_len)
     forward_list<string>::iterator it;
     istringstream iss(buf);
     string str;
-    size_t offset;
+    // size_t offset;
 
     // Put each line in the forward iterator.
     // I put the buffer in the string stream to have access to getline.
@@ -87,18 +87,18 @@ int parseHTML(char *buf, size_t buf_len)
     //     cout << *it << endl;
 
     //collect all of the links in a page
-    list<string> links;
-    list<string>::iterator itr;
-    for (it = page.begin(); it != page.end(); ++it) 
-    {
-        offset = it->find("href=\""); 
-        if (offset != string::npos)
-            links.push_back(*it);
-    }
+    // list<string> links;
+    // list<string>::iterator itr;
+    // for (it = page.begin(); it != page.end(); ++it) 
+    // {
+    //     offset = it->find("href=\""); 
+    //     if (offset != string::npos)
+    //         links.push_back(*it);
+    // }
 
     // for (itr = links.begin(); itr != links.end(); ++it)
     //     cout << *itr << endl;
-    cout << "num links: " << links.size() << endl;
+    // cout << "num links: " << links.size() << endl;
     // check if a lot of the links navigate outside of the website
     
 
@@ -290,7 +290,7 @@ int main(int argc, char **argv)
     bool need_host = true;
     
     // If argc is two, a pcap input file should be given.
-    if (argc == 2)
+    if (argc == 3)
     {
         map<string, string> header;
         ifstream in;
@@ -352,7 +352,7 @@ int main(int argc, char **argv)
         in.close();
     }
     // Input is piped to our program from stdout with our pcap_wrap format.
-    else
+    else if (argc == 1)
     {
         map<string, string> key;
         string first, second;
@@ -406,7 +406,10 @@ int main(int argc, char **argv)
             // Clear the key map for other packet keys.
             key.clear();
         }
+    } else {
+        cout << "Usage: html_parser outbound-flow inbound-flow" << endl;
     }
+
 
     return 0;
 }
