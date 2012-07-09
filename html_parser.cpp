@@ -65,7 +65,7 @@ int parseHTML(char *buf, size_t buf_len)
     forward_list<string>::iterator it;
     istringstream iss(buf);
     string str;
-    // size_t offset;
+
 
     // Put each line in the forward iterator.
     // I put the buffer in the string stream to have access to getline.
@@ -87,8 +87,25 @@ int parseHTML(char *buf, size_t buf_len)
     //     cout << *it << endl;
 
     //collect all of the links in a page
-    // list<string> links;
-    // list<string>::iterator itr;
+    list<string> links;
+    list<string>::iterator itr;
+    size_t offset;
+    size_t span;
+
+    // TODO: think about better ways to distinguish between an in-domain link and internet link
+    // besides that internet starts with "http://" and in-domain starts with "/"
+    // if it has an href, parse out the link
+    for (it = page.begin(); it != page.end(); ++it) 
+    {
+        offset = it->find("href=\""); 
+        if (offset != string::npos) {
+            // find the ending quote for the link, and push the url int
+            // cout << *it << endl;
+            span = it->substr(offset+6).find("\"");
+            links.push_back(it->substr(offset+6, span));
+        }
+    }
+
     // for (it = page.begin(); it != page.end(); ++it) 
     // {
     //     offset = it->find("href=\""); 
@@ -96,9 +113,10 @@ int parseHTML(char *buf, size_t buf_len)
     //         links.push_back(*it);
     // }
 
-    // for (itr = links.begin(); itr != links.end(); ++it)
-    //     cout << *itr << endl;
-    // cout << "num links: " << links.size() << endl;
+    // print the links
+    for (itr = links.begin(); itr != links.end(); ++itr)
+        cout << *itr << endl;
+    cout << "num links: " << links.size() << endl;
     // check if a lot of the links navigate outside of the website
     
 
@@ -288,7 +306,7 @@ int main(int argc, char **argv)
     size_t offset;
     size_t host_off;
     
-    // If argc is two, a pcap input file should be given.
+    // If argc is three, respective outbound and inbound flow files should be the arguments.
     if (argc == 3)
     {
         map<string, string> header;
