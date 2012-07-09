@@ -292,6 +292,9 @@ int main(int argc, char **argv)
     // If argc is two, a pcap input file should be given.
     if (argc == 3)
     {
+        cout << argv[1] << endl;
+        cout << argv[2] << endl;
+
         map<string, string> header;
         ifstream in;
     

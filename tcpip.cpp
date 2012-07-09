@@ -102,8 +102,14 @@ tcpip::tcpip(tcpdemux &demux_,const flow &flow_,tcp_seq isn_):
     static const std::string slash("/");
     if(demux.outdir==".")
         flow_pathname = myflow.filename();
-    else
-        flow_pathname = demux.outdir + slash + myflow.filename();
+    else {
+        // if the outdir has a / on the end, concatenate filename
+        // otherwise, add the / and do the same
+        if (demux.outdir.substr(demux.outdir.size() - 1) == "/")
+            flow_pathname = demux.outdir + myflow.filename();
+        else 
+            flow_pathname = demux.outdir + slash + myflow.filename();
+    }
 }
 
 
@@ -213,8 +219,19 @@ void tcpip::close_file()
 
         if (found) {
             if (fork() == 0) {
-                std::string file_pair = demux.finished_flows[itr - demux.finished_flows.begin()].first + 
+                /*
+                 * Gets the pathname from the original flow, and creates the pathname
+                 * to it's paired flow. Since we're dealing with multiple files, and 
+                 * the original semantics were only for one at a time, the "pathname"
+                 * semantics are little odd. So this is a fair solution, as ugly as 
+                 * it may be.
+                 */
+                size_t offset = flow_pathname.find_last_of("/");
+                std::string file_pair = flow_pathname.substr(0,offset + 1) + 
+                    demux.finished_flows[itr - demux.finished_flows.begin()].first + 
                     "-" + demux.finished_flows[itr - demux.finished_flows.begin()].second;
+
+                std::cout << "child proccess" << std::endl;
 
                 char *args[4];
                 // these are casted to get rid of const char* -> char* warnings
