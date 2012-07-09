@@ -218,34 +218,24 @@ void tcpip::close_file()
         }
 
         if (found) {
-            if (fork() == 0) {
-                /*
-                 * Gets the pathname from the original flow, and creates the pathname
-                 * to it's paired flow. Since we're dealing with multiple files, and 
-                 * the original semantics were only for one at a time, the "pathname"
-                 * semantics are little odd. So this is a fair solution, as ugly as 
-                 * it may be.
-                 */
-                size_t offset = flow_pathname.find_last_of("/");
-                std::string file_pair = flow_pathname.substr(0,offset + 1) + 
-                    demux.finished_flows[itr - demux.finished_flows.begin()].first + 
-                    "-" + demux.finished_flows[itr - demux.finished_flows.begin()].second;
+            /*
+             * Gets the pathname from the original flow, and creates the pathname
+             * to it's paired flow. Since we're dealing with multiple files, and 
+             * the original semantics were only for one at a time, the "pathname"
+             * semantics are little odd. So this is a fair solution, as ugly as 
+             * it may be.
+             */
+            size_t offset = flow_pathname.find_last_of("/");
+            std::string file_pair = flow_pathname.substr(0,offset + 1) + 
+                demux.finished_flows[itr - demux.finished_flows.begin()].first + 
+                "-" + demux.finished_flows[itr - demux.finished_flows.begin()].second;
 
-                std::cout << "child proccess" << std::endl;
-
-                char *args[4];
-                // these are casted to get rid of const char* -> char* warnings
-                args[0] = (char *)"html_parser";  
-                args[1] = (char *)flow_pathname.c_str();
-                args[2] = (char *)file_pair.c_str();
-                args[3] = NULL;
-                
-                // TODO: figure out a relative directory scheme
-                if (execv("/home/adam/html-flow-parser/html_parser",args) != -1) {
-                    // It worked as planned
-                } else {
-                    perror("execv");
-                }
+            // call html_parser on the inbound-outbound pair of flows
+            const std::string command = "./html_parser " + flow_pathname + " " + file_pair;
+            int ret = system(command.c_str());
+            if (ret == -1) {
+                perror("system");
+                exit(EXIT_FAILURE);
             }
         }
 
