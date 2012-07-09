@@ -286,13 +286,14 @@ private:
 	}
     };
     //
-    tcpdemux(const tcpdemux &t):outdir("."),flow_counter(),packet_time(),
-				max_fds(),flow_map(),start_new_connections(),
-                                openflows(),opt_output_enabled(),
-                                max_bytes_per_flow(),max_desired_fds(){
+    tcpdemux(const tcpdemux &t) : outdir("."), flow_counter(),
+        packet_time(), max_fds(), flow_map(), start_new_connections(),
+        openflows(), max_bytes_per_flow(), max_desired_fds() 
+    {
 	throw new not_impl();
     }
-    tcpdemux &operator=(const tcpdemux &that){
+
+    tcpdemux &operator=(const tcpdemux &that) {
 	throw new not_impl();
     }
 public:
@@ -306,7 +307,6 @@ public:
     flow_map_t	flow_map;		// the database
     bool	start_new_connections;	// true if we should start new connections
     tcpset	openflows;		// the tcpip flows with open FPs 
-    bool	opt_output_enabled;	// do we output?
     uint64_t	max_bytes_per_flow;
     int		max_desired_fds;
     
@@ -331,7 +331,7 @@ public:
     void process_ip6(const struct timeval *ts,const u_char *data, const uint32_t caplen, const int32_t vlan);
     void process_ip(const struct timeval *ts,const u_char *data, uint32_t caplen,int32_t vlan);
     void flow_map_clear();		// clears out the map
-    void process_infile(const std::string &expression,const char *device,const std::string &infile,bool start);
+    void process_infile(const char *device, const std::string &infile, bool start);
 };
 
 inline std::ostream & operator << (std::ostream &os,const tcpdemux::flow_map_t &fm) {

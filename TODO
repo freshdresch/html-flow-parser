@@ -1,3 +1,5 @@
+Decide between #define'ing the local ip so we know which one it is,
+or connecting tcpflow with pcap_wrap.  
 
 Need to determine which IP is inbound and which is inbound, so we can parse the ones with GET requests first so we can get the url. Unless there's another way to get the hostname.
 

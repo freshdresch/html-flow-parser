@@ -37,7 +37,6 @@ int main(int argc, char *argv[])
 
 
     tcpdemux demux;			// the demux object we will be using.
-    const std::string expression = "";      // It's important that this stay empty. Do not change this.    
     std::string filename(argv[1]);
     char *device = NULL;
 
@@ -58,7 +57,7 @@ int main(int argc, char *argv[])
 	}
     }
 
-    demux.process_infile(expression,device,filename,true);
+    demux.process_infile(device, filename, true);
     demux.close_all();
     
     return 0;

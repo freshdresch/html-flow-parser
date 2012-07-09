@@ -4,16 +4,16 @@ CXXFLAGS = -O2 -Wall
 LFLAGS = -lpcap -lpthread
 HEADERS = tcpflow.h config.h sysdep.h tcpdemux.h md5.h
 OBJECTS = datalink.o flow.o main.o tcpip.o util.o md5.o
-PROGRAMS = http_parser tcpflow
+PROGRAMS = html_parser tcpflow
 
 
 all: ${PROGRAMS}
 
-http_parser: http_parser.o
-	${CXX} ${CXXFLAGS} -std=c++0x -o http_parser http_parser.o -lz
+html_parser: html_parser.o
+	${CXX} ${CXXFLAGS} -std=c++0x -o html_parser html_parser.o -lz
 
-http_parser.o: http_parser.cpp pna.h
-	${CXX} ${CXXFLAGS} -std=c++0x -c http_parser.cpp
+html_parser.o: html_parser.cpp pna.h
+	${CXX} ${CXXFLAGS} -std=c++0x -c html_parser.cpp
 
 tcpflow: ${OBJECTS}
 	${CXX} ${CXXFLAGS} -o tcpflow ${OBJECTS} ${LFLAGS}

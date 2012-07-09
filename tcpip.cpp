@@ -101,15 +101,12 @@ tcpip::tcpip(tcpdemux &demux_,const flow &flow_,tcp_seq isn_):
     last_packet_time(0),bytes_processed(0),finished(0),file_created(false),dir(unknown),
     out_of_order_count(0),md5(0)
 {
-    /* If we are outputting the transcripts, compute the filename */
+    // compute the filename
     static const std::string slash("/");
-    if(demux.opt_output_enabled){
-        if(demux.outdir=="."){
-            flow_pathname = myflow.filename();
-        } else {
-            flow_pathname = demux.outdir + slash + myflow.filename();
-        }
-    }
+    if(demux.outdir==".")
+        flow_pathname = myflow.filename();
+    else
+        flow_pathname = demux.outdir + slash + myflow.filename();
 }
 
 
@@ -122,9 +119,9 @@ tcpip::tcpip(tcpdemux &demux_,const flow &flow_,tcp_seq isn_):
 const char *find_crlfcrlf(const char *base,size_t len)
 {
     while(len>4){
-	if(base[0]=='\r' && base[1]=='\n' && base[2]=='\r' && base[3]=='\n'){
+	if(base[0]=='\r' && base[1]=='\n' && base[2]=='\r' && base[3]=='\n')
 	    return base;
-	}
+
 	len--;
 	base++;
     }
@@ -188,11 +185,12 @@ void tcpip::close_file()
 
         if (fork() == 0) {
             char *args[3];
-            args[0] = "http_parser";
+            // these are casted to get rid of const char* -> char* warnings
+            args[0] = (char *)"html_parser";  
             args[1] = (char *)flow_pathname.c_str();
             args[2] = NULL;
 
-            if (execv("/home/adam/html-flow-parser/http_parser",args) != -1) {
+            if (execv("/home/adam/html-flow-parser/html_parser",args) != -1) {
                 // std::cout << "Yay, did it work?!" << std::endl;
             } else {
                 perror("execv");
@@ -282,29 +280,28 @@ void tcpip::store_packet(const u_char *data, uint32_t length, uint32_t seq, int 
 	length = demux.max_bytes_per_flow - offset;
     }
 
-    if (demux.opt_output_enabled){
-	/* if we don't have a file open for this flow, try to open it.
-	 * return if the open fails.  Note that we don't have to explicitly
-	 * save the return value because open_tcpfile() puts the file pointer
-	 * into the structure for us. */
-	if (fp == NULL) {
-	    if (demux.open_tcpfile(this)) return;
-	}
-	
-	/* if we're not at the correct point in the file, seek there */
-	if (offset != pos) {
-	    fseek(fp, offset, SEEK_SET);
-	    out_of_order_count++;
-	}
-	
-	/* write the data into the file */
-	if (fwrite(data, length, 1, fp) != 1) 
-            perror("");
-	if (out_of_order_count==0 && md5)
-	    MD5Update(md5,data,length);
-
-	fflush(fp);
+    /* if we don't have a file open for this flow, try to open it.
+     * return if the open fails.  Note that we don't have to explicitly
+     * save the return value because open_tcpfile() puts the file pointer
+     * into the structure for us. */
+    if (fp == NULL) {
+        if (demux.open_tcpfile(this)) 
+            return;
     }
+	
+    /* if we're not at the correct point in the file, seek there */
+    if (offset != pos) {
+        fseek(fp, offset, SEEK_SET);
+        out_of_order_count++;
+    }
+	
+    /* write the data into the file */
+    if (fwrite(data, length, 1, fp) != 1) 
+        perror("");
+    if (out_of_order_count==0 && md5)
+        MD5Update(md5,data,length);
+
+    fflush(fp);
 
     /* update instance variables */
     if(bytes_processed==0 || pos<pos_min) pos_min = pos;
@@ -324,6 +321,11 @@ void tcpip::store_packet(const u_char *data, uint32_t length, uint32_t seq, int 
 unsigned int tcpdemux::get_max_fds(void)
 {
     int max_descs = 0;
+    /* complains about this being set but not used
+     * however, it being defined in the branches is way better than
+     * putting the declaration in each of the branches (to fix
+     * the warning). 
+     */
     const char *method;
 
     /* Use OPEN_MAX if it is available */
@@ -386,8 +388,8 @@ unsigned int tcpdemux::get_max_fds(void)
 tcpdemux::tcpdemux():outdir("."),flow_counter(0),packet_time(0),
 		     max_fds(10),flow_map(),
 		     start_new_connections(false),
-		     openflows(), opt_output_enabled(true),
-		     max_bytes_per_flow(),max_desired_fds()
+		     openflows(), max_bytes_per_flow(),
+                     max_desired_fds()
 {
     /* Find out how many files we can have open safely...subtract 4 for
      * stdin, stdout, stderr, and the packet filter; one for breathing
@@ -657,7 +659,7 @@ static void terminate(int sig)
  * May be repeated.
  * If start is false, do not initiate new connections
  */
-void tcpdemux::process_infile(const std::string &expression,const char *device,const std::string &infile,bool start)
+void tcpdemux::process_infile(const char *device, const std::string &infile, bool start)
 {
     char error[PCAP_ERRBUF_SIZE];
     pcap_t *pd=0;
@@ -699,7 +701,7 @@ void tcpdemux::process_infile(const std::string &expression,const char *device,c
 
     /* install the filter expression in libpcap */
     struct bpf_program	fcode;
-    if (pcap_compile(pd, &fcode, expression.c_str(), 1, 0) < 0){
+    if (pcap_compile(pd, &fcode, "", 1, 0) < 0){
 	die("%s", pcap_geterr(pd));
     }
 
