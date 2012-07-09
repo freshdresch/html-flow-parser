@@ -287,18 +287,54 @@ int main(int argc, char **argv)
     string host;
     size_t offset;
     size_t host_off;
-    bool need_host = true;
     
     // If argc is two, a pcap input file should be given.
     if (argc == 3)
     {
-        cout << argv[1] << endl;
-        cout << argv[2] << endl;
-
         map<string, string> header;
         ifstream in;
-    
-        in.open(argv[1]);
+        
+        int outbound;
+        int inbound;
+        char port[5];
+
+        /*
+         * Check the destination port of the first file.
+         * If it is 80, then it's the outbound file.
+         * If not, then it's the inbound file.
+         * Set the file's argument number accordingly.
+         */
+        strncpy(port, argv[1] + strlen(argv[1]) - 5, 5);
+        if (atoi(port) == 80) {
+            outbound = 1;
+            inbound = 2;
+        } else {
+            inbound = 1;
+            outbound = 2;
+        }
+
+        // Get the hostname
+        in.open(argv[outbound]);
+        if (in.is_open()) {
+            while (!in.eof()) {
+                // search for a GET request that specifies the host
+                // should be the first line, so quit after we find it
+                getline(in, line);
+
+                host_off = line.find("Host: ");
+                    
+                if (host_off != string::npos) {
+                    host = line.substr(host_off + 6);
+                    break;
+                }
+            }
+        }
+        in.close();
+
+        cout << "host: " << host << endl;
+
+        // Let's parse some replies!
+        in.open(argv[inbound]);
         if (in.is_open()) 
         {
             while (!in.eof()) 
@@ -306,20 +342,7 @@ int main(int argc, char **argv)
                 // Search for the "HTTP/1.1 200 OK" line.
                 getline(in, line);
 
-                if (need_host) 
-                {
-                    host_off = line.find("Host: ");
-                    
-                    if (host_off != string::npos)
-                    {
-                        host = line.substr(host_off + 6);
-                        need_host = false;
-                    }
-                }
-
-
                 offset = line.find("HTTP/1.1 200 OK");
-                
                 if (offset != string::npos) 
                 {
                     // We found the reply.
@@ -411,6 +434,7 @@ int main(int argc, char **argv)
         }
     } else {
         cout << "Usage: html_parser outbound-flow inbound-flow" << endl;
+        cout << "[NOTE] the flow order is not important" << endl;
     }
 
 
