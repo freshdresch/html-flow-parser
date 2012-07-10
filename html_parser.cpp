@@ -159,20 +159,24 @@ int parseHTML(char *buf, size_t buf_len)
         
         temp = make_pair(link,1);
         
-        if (last != link)
-            domains.push_back(temp);
-        else 
-            domains.back().second++;
-        
+        // don't worry about the hostname
+        if (link != host) {
+            if (last != link)
+                domains.push_back(temp);
+            else 
+                domains.back().second++;
+        }
+
         last = link;
     }
 
     // TODO: the value 1 should be a user-configured threshold
-    // also, whitelist?
+    // TODO: subdomain issues
+    // also, whitelist? .edu, google.com domain
     list<pair<string, unsigned int> >::iterator dom_itr = domains.begin();
     for ( ; dom_itr != domains.end(); ++dom_itr) {
         if (dom_itr->second > 1) {
-            cout << "WARNING: " << dom_itr->first << " is a suspicious link." << endl;
+            cout << "WARNING: " << dom_itr->first << " is a suspicious URL." << endl;
             cout << "It was sequentially linked " << dom_itr->second << 
                 " times in close proximity." << endl;
             cout << "Please check this location." << endl << endl;
@@ -387,7 +391,6 @@ int parseHTTP(ifstream& in, map<string, string>& header)
 int main(int argc, char **argv) 
 {
     string line; 
-    string host;
     size_t offset;
     size_t host_off;
     
@@ -432,9 +435,13 @@ int main(int argc, char **argv)
                 getline(in, line);
 
                 host_off = line.find("Host: ");
-                    
                 if (host_off != string::npos) {
                     host = line.substr(host_off + 6);
+
+                    host_off = host.find("\r");
+                    if (host_off != string::npos) 
+                        host = host.substr(0,host_off);
+
                     break;
                 }
             }

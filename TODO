@@ -1,12 +1,11 @@
-Either send both of the files, or do it inside of tcpflow.  Make sure I don't repeat any code though.
+It looks like it will eventually be a testing suite.  Say url-tester, keyword-tester, etc.
 
-Decide between #define'ing the local ip so we know which one it is,
-or connecting tcpflow with pcap_wrap.  
-
-Need to determine which IP is inbound and which is inbound, so we can parse the ones with GET requests first so we can get the url. Unless there's another way to get the hostname.
+Do a literature survey on black-hat seo. See if there are any techniques out there that 
+people have published. Also, look for more compromised sites so I can get a large dataset.
 
 Work out return values for the two cases in the http parsing.
 
-I don't like that we call tcpflow instead of http_parser, even though http_parser is the whole point of the program.
+I don't like that we call tcpflow instead of http_parser, even though http_parser is the 
+whole point of the program.
 
 Try to avoid the hardcoded directory.
