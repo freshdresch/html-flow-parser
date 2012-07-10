@@ -44,16 +44,24 @@ struct gzip_trailer
 };
 #define GZIP_TRAILER_LEN 8
 
-// Parser returns
-#define PARSE_SUCCESS 1
-#define PARSE_FAILURE 0
-
 // HTTP text options
 #define NONE       0
 #define COMPRESSED 1
 #define CHUNKED    2
 #define BOTH       3
 
+// Parser returns
+#define PARSE_SUCCESS 1
+#define PARSE_FAILURE 0
+
+#define NUM_PROTOS 3
+const char *protocols[NUM_PROTOS] = {"http://", "https://", "ftp://"};
+
+// #define NUM_EXTENSIONS 13
+// const char *extensions[NUM_EXTENSIONS] = {".com",".net",".org",".info",
+//                                           ".biz",".co.uk",".in", ".us",
+//                                           ".me",".co",".ca",".mobi",
+//                                           ".org.uk",".me.uk"};
 // Either make the host global or make it an argument through 
 // 3 functions where it's only needed in the last one.
 // Shitty, I know...
@@ -87,10 +95,16 @@ int parseHTML(char *buf, size_t buf_len)
     //     cout << *it << endl;
 
     //collect all of the links in a page
-    list<string> links;
+    list<string> local_links;
+    list<string> remote_links;
+    list<pair<string, unsigned int> > domains;
     list<string>::iterator itr;
+
+    string link;
     size_t offset;
     size_t span;
+
+    bool remote = false;
 
     // TODO: think about better ways to distinguish between an in-domain link and internet link
     // besides that internet starts with "http://" and in-domain starts with "/"
@@ -101,10 +115,81 @@ int parseHTML(char *buf, size_t buf_len)
         if (offset != string::npos) {
             // find the ending quote for the link, and push the url int
             // cout << *it << endl;
+            //links.push_back(it->substr(offset+6, span));
             span = it->substr(offset+6).find("\"");
-            links.push_back(it->substr(offset+6, span));
+            link = it->substr(offset+6,span);
+            
+            
+            for (int i = 0; i < NUM_PROTOS; ++i) {
+                if (strncmp(link.c_str(),protocols[i], 
+                            strlen(protocols[i])) == 0) 
+                {
+                    remote = true;
+                    break;
+                } 
+            }
+
+            if (remote)
+                remote_links.push_back(link);
+            else
+                local_links.push_back(link);
+
+            remote = false;
         }
     }
+
+    remote_links.push_back("http://www1.idc.ac.il/tecs/");
+
+    pair<string, unsigned int> temp;
+    string last = "";
+
+    for (itr = remote_links.begin(); itr != remote_links.end(); ++itr) {
+        offset = itr->find("//");
+        link = itr->substr(offset+2);
+        
+        if (link.substr(0,4) == "www.") 
+            link = link.substr(4);
+        else if (link.substr(0,3) == "www" && link[4] == '.') 
+            link = link.substr(5);
+        // else, it doesn't have a prefix, leave it alone
+
+        offset = link.find("/");
+        if (offset != string::npos) 
+            link = link.substr(0,offset);
+        
+        temp = make_pair(link,1);
+        
+        if (last != link)
+            domains.push_back(temp);
+        else 
+            domains.back().second++;
+        
+        last = link;
+    }
+
+    // TODO: the value 1 should be a user-configured threshold
+    // also, whitelist?
+    list<pair<string, unsigned int> >::iterator dom_itr = domains.begin();
+    for ( ; dom_itr != domains.end(); ++dom_itr) {
+        if (dom_itr->second > 1) {
+            cout << "WARNING: " << dom_itr->first << " is a suspicious link." << endl;
+            cout << "It was sequentially linked " << dom_itr->second << 
+                " times in close proximity." << endl;
+            cout << "Please check this location." << endl << endl;
+        }
+    }
+
+    // cout << "Remote Links:" << endl;
+    // for (itr = remote_links.begin(); itr != remote_links.end(); ++itr) 
+    //     cout << *itr << endl;
+    // cout << endl << "Local Links:" << endl;
+    // for (itr = local_links.begin(); itr != local_links.end(); ++itr) 
+    //     cout << *itr << endl;
+    
+    cout << endl << "----------Numbers-----------" << endl;
+    cout << "Remote Links: " << remote_links.size() << endl;
+    cout << "Local Links: " << local_links.size() << endl << endl << endl;
+
 
     // for (it = page.begin(); it != page.end(); ++it) 
     // {
@@ -114,9 +199,9 @@ int parseHTML(char *buf, size_t buf_len)
     // }
 
     // print the links
-    for (itr = links.begin(); itr != links.end(); ++itr)
-        cout << *itr << endl;
-    cout << "num links: " << links.size() << endl;
+    // for (itr = links.begin(); itr != links.end(); ++itr)
+    //     cout << *itr << endl;
+    // cout << "num links: " << links.size() << endl;
     // check if a lot of the links navigate outside of the website
     
 
@@ -356,7 +441,7 @@ int main(int argc, char **argv)
         }
         in.close();
 
-        cout << "host: " << host << endl;
+        cout << "*************** Host: " << host << " ***************"<< endl;
 
         // Let's parse some replies!
         in.open(argv[inbound]);
