@@ -57,11 +57,6 @@ struct gzip_trailer
 #define NUM_PROTOS 3
 const char *protocols[NUM_PROTOS] = {"http://", "https://", "ftp://"};
 
-// #define NUM_EXTENSIONS 13
-// const char *extensions[NUM_EXTENSIONS] = {".com",".net",".org",".info",
-//                                           ".biz",".co.uk",".in", ".us",
-//                                           ".me",".co",".ca",".mobi",
-//                                           ".org.uk",".me.uk"};
 // Either make the host global or make it an argument through 
 // 3 functions where it's only needed in the last one.
 // Shitty, I know...
@@ -131,44 +126,54 @@ int parseHTML(char *buf, size_t buf_len)
 
             if (remote)
                 remote_links.push_back(link);
-            else
-                local_links.push_back(link);
+            else {
+                // ignore in-page references
+                if (strncmp(link.c_str(),"#",1) != 0)
+                    local_links.push_back(link);
+            }
 
             remote = false;
         }
     }
-
-    remote_links.push_back("http://www1.idc.ac.il/tecs/");
 
     pair<string, unsigned int> temp;
     string last = "";
 
     for (itr = remote_links.begin(); itr != remote_links.end(); ++itr) {
         offset = itr->find("//");
-        link = itr->substr(offset+2);
+        if (offset != string::npos) {
+            link = itr->substr(offset+2);
         
-        if (link.substr(0,4) == "www.") 
-            link = link.substr(4);
-        else if (link.substr(0,3) == "www" && link[4] == '.') 
-            link = link.substr(5);
-        // else, it doesn't have a prefix, leave it alone
-
-        offset = link.find("/");
-        if (offset != string::npos) 
-            link = link.substr(0,offset);
-        
-        temp = make_pair(link,1);
-        
-        // don't worry about the hostname
-        if (link != host) {
-            if (last != link)
-                domains.push_back(temp);
-            else 
-                domains.back().second++;
+            if (link.substr(0,4) == "www.") 
+                link = link.substr(4);
+            else if (link.substr(0,3) == "www" && link[4] == '.') 
+                link = link.substr(5);
+            // else, it doesn't have a prefix, leave it alone
+            
+            offset = link.find("/");
+            if (offset != string::npos) 
+                link = link.substr(0,offset);
+            
+            temp = make_pair(link,1);
+            
+            // don't worry about the hostname
+            if (link != host) {
+                if (last != link)
+                    domains.push_back(temp);
+                else 
+                    domains.back().second++;
+            }
+            
+            last = link;
         }
-
-        last = link;
     }
+
+    cout << "Remote Links:" << endl;
+    for (itr = remote_links.begin(); itr != remote_links.end(); ++itr) 
+        cout << *itr << endl;
+    cout << endl << "Local Links:" << endl;
+    for (itr = local_links.begin(); itr != local_links.end(); ++itr) 
+        cout << *itr << endl;
 
     // TODO: the value 1 should be a user-configured threshold
     // TODO: subdomain issues
@@ -183,12 +188,6 @@ int parseHTML(char *buf, size_t buf_len)
         }
     }
 
-    // cout << "Remote Links:" << endl;
-    // for (itr = remote_links.begin(); itr != remote_links.end(); ++itr) 
-    //     cout << *itr << endl;
-    // cout << endl << "Local Links:" << endl;
-    // for (itr = local_links.begin(); itr != local_links.end(); ++itr) 
-    //     cout << *itr << endl;
     
     cout << endl << "----------Numbers-----------" << endl;
     cout << "Remote Links: " << remote_links.size() << endl;

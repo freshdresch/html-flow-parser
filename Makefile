@@ -1,6 +1,6 @@
 
 CXX = g++
-CXXFLAGS = -O2 -Wall 
+CXXFLAGS = -O2 -Wall -g
 LFLAGS = -lpcap -lpthread
 HEADERS = tcpflow.h config.h sysdep.h tcpdemux.h md5.h
 OBJECTS = datalink.o flow.o main.o tcpip.o util.o md5.o

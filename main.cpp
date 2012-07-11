@@ -30,19 +30,28 @@ sem_t *semlock = 0;
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2) {
-        std::cerr << "Usage: tcpflow pcap_file" << std::endl;
-        exit(1);
+    if (argc < 2 && argc > 3) {
+        std::cerr << "Usage: tcpflow PCAP_FILE [OUTPUT_DIRECTORY]" << std::endl;
+        exit(EXIT_FAILURE);
     }
 
 
     tcpdemux demux;			// the demux object we will be using.
-    std::string filename(argv[1]);
     char *device = NULL;
 
+    std::string filename(argv[1]);
+    std::string directory;
+
+    if (argc == 2) {
+        size_t offset = filename.rfind("/");
+        if (offset != std::string::npos) 
+            directory = filename.substr(0,offset);
+    } else {
+        directory = argv[2];
+    }
 
     progname = argv[0];
-    demux.outdir = "/home/adam/flowtests/";
+    demux.outdir = directory.c_str();
 
     struct stat sbuf;
     if(stat(demux.outdir.c_str(),&sbuf)==0) {
@@ -51,7 +60,7 @@ int main(int argc, char *argv[])
 	    exit(1);
 	}
     } else {
-	if(mkdir(demux.outdir.c_str(),0777)){
+	if(mkdir(demux.outdir.c_str(),0777)) {
 	    std::cerr << "cannot create " << demux.outdir << ": " << strerror(errno) << "\n";
 	    exit(1);
 	}
