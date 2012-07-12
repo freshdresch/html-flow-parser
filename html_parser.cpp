@@ -64,6 +64,9 @@ string host;
 
 int parseHTML(char *buf, size_t buf_len)
 {
+    cerr << __func__ << endl;
+    cerr << "size of buf: " << strlen(buf) << endl << endl;
+
     forward_list<string> page;
     forward_list<string>::iterator it;
     istringstream iss(buf);
@@ -73,17 +76,14 @@ int parseHTML(char *buf, size_t buf_len)
     // Put each line in the forward iterator.
     // I put the buffer in the string stream to have access to getline.
     it = page.before_begin();
-    if (iss.good())
-    {
-         while(!iss.eof()) 
-        {
+    if (iss.good()) {
+        while(!iss.eof()) {
             getline(iss,str);
             page.emplace_after(it, str);
         }
-        
-    }
-    else
+    } else {
         return PARSE_FAILURE;
+    }
     
     // // Print the list of html lines.
     // for (it = page.begin(); it != page.end(); ++it) 
@@ -104,9 +104,9 @@ int parseHTML(char *buf, size_t buf_len)
     // TODO: think about better ways to distinguish between an in-domain link and internet link
     // besides that internet starts with "http://" and in-domain starts with "/"
     // if it has an href, parse out the link
-    for (it = page.begin(); it != page.end(); ++it) 
-    {
+    for (it = page.begin(); it != page.end(); ++it) {
         offset = it->find("href=\""); 
+
         if (offset != string::npos) {
             // find the ending quote for the link, and push the url int
             // cout << *it << endl;
@@ -114,24 +114,22 @@ int parseHTML(char *buf, size_t buf_len)
             span = it->substr(offset+6).find("\"");
             link = it->substr(offset+6,span);
             
-            
             for (int i = 0; i < NUM_PROTOS; ++i) {
                 if (strncmp(link.c_str(),protocols[i], 
-                            strlen(protocols[i])) == 0) 
-                {
+                            strlen(protocols[i])) == 0) {
                     remote = true;
                     break;
                 } 
             }
 
-            if (remote)
+            if (remote) {
                 remote_links.push_back(link);
-            else {
+            } else {
                 // ignore in-page references
                 if (strncmp(link.c_str(),"#",1) != 0)
                     local_links.push_back(link);
             }
-
+            
             remote = false;
         }
     }
@@ -141,9 +139,10 @@ int parseHTML(char *buf, size_t buf_len)
 
     for (itr = remote_links.begin(); itr != remote_links.end(); ++itr) {
         offset = itr->find("//");
+
         if (offset != string::npos) {
             link = itr->substr(offset+2);
-        
+            
             if (link.substr(0,4) == "www.") 
                 link = link.substr(4);
             else if (link.substr(0,3) == "www" && link[4] == '.') 
@@ -392,16 +391,19 @@ int main(int argc, char **argv)
     string line; 
     size_t offset;
     size_t host_off;
-    
+
+    cerr << "file one: " << argv[1] << endl;
+    cerr << "file two: " << argv[2] << endl;
     // If argc is three, respective outbound and inbound flow files should be the arguments.
     if (argc == 3)
     {
         map<string, string> header;
         ifstream in;
-        
+
+        char portOne[5], portTwo[5];
         int outbound;
         int inbound;
-        char port[5];
+
 
         /*
          * Eliminate some magic numbers
@@ -416,13 +418,20 @@ int main(int argc, char **argv)
          * If not, then it's the inbound file.
          * Set the file's argument number accordingly.
          */
-        strncpy(port, argv[1] + strlen(argv[1]) - 5, 5);
-        if (atoi(port) == tcp_port) {
+        strncpy(portOne, argv[1] + strlen(argv[1]) - 5, 5);
+        strncpy(portTwo, argv[2] + strlen(argv[2]) - 5, 5);
+
+        if (atoi(portOne) == tcp_port) {
             outbound = 1;
             inbound = 2;
-        } else {
+        } else if (atoi(portTwo) == tcp_port) {
             inbound = 1;
             outbound = 2;
+        } else {
+            // not communication between the server and the client
+            // quit
+            cerr << "No communication to the website's server. Exiting..." << endl;
+            exit(0);
         }
 
         // Get the hostname
