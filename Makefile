@@ -1,6 +1,6 @@
 
 CXX = g++
-CXXFLAGS = -O2 -Wall -Wextra
+CXXFLAGS = -O2 -Wall 
 LDLIBS = -lpcap -lpthread
 HEADERS = tcpflow.h config.h sysdep.h tcpdemux.h md5.h
 OBJECTS = datalink.o flow.o main.o tcpip.o util.o md5.o
@@ -9,7 +9,7 @@ PROGRAMS = html_parser tcpflow
 
 all: ${PROGRAMS}
 
-debug: CXXFLAGS := ${CXXFLAGS:-O2=-O0} -ggdb
+debug: CXXFLAGS := ${CXXFLAGS:-O2=-O0} -ggdb -Wextra
 debug: ${PROGRAMS}
 
 html_parser: html_parser.o

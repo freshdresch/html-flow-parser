@@ -368,18 +368,16 @@ unsigned int tcpdemux::get_max_fds(void)
      * putting the declaration in each of the branches (to fix
      * the warning). 
      */
-    const char *method;
+    // const char *method;
 
     /* Use OPEN_MAX if it is available */
 #if defined (OPEN_MAX)
-    method = "OPEN_MAX";
     max_descs = OPEN_MAX;
 #elif defined(RLIMIT_NOFILE)
     {
 	struct rlimit limit;
 	memset(&limit,0,sizeof(limit));
 
-	method = "rlimit";
 	if (getrlimit(RLIMIT_NOFILE, &limit) < 0) {
 	    perror("getrlimit");
 	    exit(1);
@@ -403,7 +401,6 @@ unsigned int tcpdemux::get_max_fds(void)
     /* Okay, you don't have getrlimit() and you don't have OPEN_MAX.
      * Time to try the POSIX sysconf() function.  (See Stevens'
      * _Advanced Programming in the UNIX Environment_).  */
-    method = "POSIX sysconf";
     errno = 0;
     if ((max_descs = sysconf(_SC_OPEN_MAX)) < 0) {
 	if (errno == 0)
@@ -416,7 +413,6 @@ unsigned int tcpdemux::get_max_fds(void)
 
     /* if everything has failed, we'll just take a guess */
 #else
-    method = "random guess";
     max_descs = MAX_FD_GUESS;
 #endif
 
