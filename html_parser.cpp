@@ -212,6 +212,9 @@ int parseHTML(char *buf, size_t buf_len)
 
 int decompress(string compression, unique_ptr<char[]> pBuf, size_t buf_len) 
 {
+    cout << __func__ << ": " << compression << endl;
+    cout.write(pBuf.get(), buf_len);
+    cout << endl << endl << endl;
     // zlib should work on the gzip and deflate encodings.
     // Need to test deflate though, can't find one that uses it (so maybe I don't need to worry about it).
     if (strncmp(compression.c_str(), "gzip", 4) == 0 || strncmp(compression.c_str(), "deflate", 7) == 0) 
@@ -242,8 +245,11 @@ int decompress(string compression, unique_ptr<char[]> pBuf, size_t buf_len)
         err = inflate(&d_stream, Z_FINISH);
         if (err < 0)
             cout << "inflate Error: " << err << ": " << d_stream.msg << endl;
+        
+        cout << "Decompressed Buffer: ";
+        cout.write((char *)pUncomp.get(), uncomp_len);
+        cout << endl;
 
-        //cout.write((char *)pUncomp.get(), uncomp_len);
         ret = parseHTML((char *)pUncomp.get(), uncomp_len);
         return ret;
     }
@@ -254,6 +260,8 @@ int decompress(string compression, unique_ptr<char[]> pBuf, size_t buf_len)
 
 int parseHTTP(ifstream& in, map<string, string>& header)
 {
+    cout << __func__ << endl;
+    
     map<string, string>::iterator itr;
     string line;
     size_t length; 
@@ -346,36 +354,66 @@ int parseHTTP(ifstream& in, map<string, string>& header)
     {
         // Same as the CHUNKED case but with decompression. Comments included again for verbosity.
         // TODO: figure out way to combine this and CHUNKED to eliminate repetitive code
+        size_t totalLength = 0;
 
         // Get the first chunk length.
         getline(in,line);
+        cout << "line: " << line << endl;
         length = strtoul(line.c_str(),NULL,16);
-
+        cout << "length: " << length << endl;
         // Repeat reading the buffer and new chunk length until the length is 0.
         // 0 is the value in concordance with the HTTP spec, it signifies the end of the chunks.
+
+        ostringstream oss;
         while (length != 0) 
         {
-            unique_ptr<char[]> pBuf(new char[length]);
-            in.read(pBuf.get(), length);
-            decompress(header["Content-Encoding"],std::move(pBuf),length);
+            totalLength += length;
+            char *chunk = new char[length];
+            // unique_ptr<char[]> pChunk(new char[length]);
+            in.read(chunk, length);
+            oss << chunk;
+            
+            // unique_ptr<char[]> pBuf(new char[length]);
+            // in.read(pBuf.get(), length);
+            // cout << "Buffer: ";
+            // cout.write(pBuf.get(), length);
+            // cout << endl;
+            // decompress(header["Content-Encoding"],std::move(pBuf),length);
             
             // Consume the trailing CLRF before the length.
             getline(in,line);
+            cout << "line: " << line << endl;
 
             // Consume the new chunk length or the terminating zero.
             getline(in,line);
+            cout << "line: " << line << endl;
 
             // I have to use strtoul with base 16 because the HTTP spec
             // says the chunked encoding length is presented in hex.
             length = strtoul(line.c_str(),NULL,16);
+            cout << "length: " << length << endl;
+
+            delete [] chunk;
         }
 
         // Once it gets to this point, the chunked length last fed was 0
         // Get last CLRF and quit
         getline(in,line);
+        cout << "line: " << line << endl;
 
+        unique_ptr<char[]> pBuf((char *)oss.str().c_str());
+        // cout << pBuf.get() << endl;
+        cout << endl << endl << endl;
+        cout.write(pBuf.get(), totalLength);
+        
+
+        struct gzip_trailer *gz_trailer = (struct gzip_trailer *)(pBuf.get() + totalLength - GZIP_TRAILER_LEN);
+        cout << "uncomp_len: " << gz_trailer->uncomp_len << endl;
+        cout << "crc32: " << gz_trailer->crc32 << endl;
+
+        ret = decompress(header["Content-Encoding"], std::move(pBuf), totalLength);
         // TODO: Return value for this. Multiple decompress calls equates to...?
-        ret = PARSE_SUCCESS;
+        // ret = PARSE_SUCCESS;
         break;
     }
     default:
