@@ -85,9 +85,9 @@ int parseHTML(char *buf, size_t buf_len)
         return PARSE_FAILURE;
     }
     
-    // // Print the list of html lines.
-    // for (it = page.begin(); it != page.end(); ++it) 
-    //     cout << *it << endl;
+    // Print the list of html lines.
+    for (it = page.begin(); it != page.end(); ++it) 
+        cout << *it << endl;
 
     //collect all of the links in a page
     list<string> local_links;
@@ -352,18 +352,15 @@ int parseHTTP(ifstream& in, map<string, string>& header)
     }
     case BOTH:
     {
-        // Same as the CHUNKED case but with decompression. Comments included again for verbosity.
-        // TODO: figure out way to combine this and CHUNKED to eliminate repetitive code
         size_t totalLength = 0;
 
         // Get the first chunk length.
         getline(in,line);
-        // cout << "line: " << line << endl;
+
         length = strtoul(line.c_str(),NULL,16);
-        // cout << "length: " << length << endl;
+
         // Repeat reading the buffer and new chunk length until the length is 0.
         // 0 is the value in concordance with the HTTP spec, it signifies the end of the chunks.
-
         ostringstream oss;
         while (length != 0) 
         {
@@ -373,26 +370,16 @@ int parseHTTP(ifstream& in, map<string, string>& header)
             in.read(chunk, length);
             // oss << chunk;
             oss.write(chunk, length);
-            
-            // unique_ptr<char[]> pBuf(new char[length]);
-            // in.read(pBuf.get(), length);
-            // cout << "Buffer: ";
-            // cout.write(pBuf.get(), length);
-            // cout << endl;
-            // decompress(header["Content-Encoding"],std::move(pBuf),length);
-            
+
             // Consume the trailing CLRF before the length.
             getline(in,line);
-            // cout << "line: " << line << endl;
 
             // Consume the new chunk length or the terminating zero.
             getline(in,line);
-            // cout << "line: " << line << endl;
 
             // I have to use strtoul with base 16 because the HTTP spec
             // says the chunked encoding length is presented in hex.
             length = strtoul(line.c_str(),NULL,16);
-            // cout << "length: " << length << endl;
 
             delete [] chunk;
         }
@@ -400,23 +387,15 @@ int parseHTTP(ifstream& in, map<string, string>& header)
         // Once it gets to this point, the chunked length last fed was 0
         // Get last CLRF and quit
         getline(in,line);
-        // cout << "line: " << line << endl;
 
         // unique_ptr<char[]> pBuf(new char[oss.str().size()]);
         // strncpy(pBuf.get(), oss.str().c_str(), oss.str().size());
         // cout.write(pBuf.get(), totalLength);
 
         unique_ptr<char[]> pBuf(new char[oss.str().size() + 1]);
-        strcpy(pBuf.get(), oss.str().c_str());
-        cout.write(pBuf.get(), totalLength + 1);
-
-        // struct gzip_trailer *gz_trailer = (struct gzip_trailer *)(pBuf.get() + totalLength - GZIP_TRAILER_LEN);
-        // cout << "uncomp_len: " << gz_trailer->uncomp_len << endl;
-        // cout << "crc32: " << gz_trailer->crc32 << endl;
-
-        // ret = decompress(header["Content-Encoding"], std::move(pBuf), totalLength);
-        // TODO: Return value for this. Multiple decompress calls equates to...?
-        // ret = PARSE_SUCCESS;
+        memcpy(pBuf.get(), oss.str().c_str(), oss.str().size() + 1);
+        
+        ret = decompress(header["Content-Encoding"], std::move(pBuf), totalLength);
         break;
     }
     default:
