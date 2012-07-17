@@ -392,7 +392,7 @@ int parseHTTP(ifstream& in, map<string, string>& header)
             // I have to use strtoul with base 16 because the HTTP spec
             // says the chunked encoding length is presented in hex.
             length = strtoul(line.c_str(),NULL,16);
-            cout << "length: " << length << endl;
+            // cout << "length: " << length << endl;
 
             delete [] chunk;
         }
@@ -402,12 +402,13 @@ int parseHTTP(ifstream& in, map<string, string>& header)
         getline(in,line);
         // cout << "line: " << line << endl;
 
-        unique_ptr<char[]> pBuf((char *)oss.str().c_str());
-        // cout << pBuf.get() << endl;
-        // cout << endl << endl << endl;
-        cout << "before write" << endl;
-        cout.write(pBuf.get(), totalLength);
-        cout << "after write" << endl;
+        // unique_ptr<char[]> pBuf(new char[oss.str().size()]);
+        // strncpy(pBuf.get(), oss.str().c_str(), oss.str().size());
+        // cout.write(pBuf.get(), totalLength);
+
+        unique_ptr<char[]> pBuf(new char[oss.str().size() + 1]);
+        strcpy(pBuf.get(), oss.str().c_str());
+        cout.write(pBuf.get(), totalLength + 1);
 
         // struct gzip_trailer *gz_trailer = (struct gzip_trailer *)(pBuf.get() + totalLength - GZIP_TRAILER_LEN);
         // cout << "uncomp_len: " << gz_trailer->uncomp_len << endl;
@@ -423,7 +424,6 @@ int parseHTTP(ifstream& in, map<string, string>& header)
 
     }
 
-    cout << "before return" << endl;
     return ret;
 }
 
@@ -530,7 +530,7 @@ int main(int argc, char **argv)
 
                     // Send the HTTP header and our ifstream to parseHTTP.
                     parseHTTP(in, header);
-                    cout << "after parseHTTP" << endl;
+
                     // Clear the header map for the next reply found in the file.
                     header.clear();
                 }
