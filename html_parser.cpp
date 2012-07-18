@@ -37,8 +37,7 @@ using namespace std;
 
 
 // Trailer for gzip compression
-struct gzip_trailer 
-{
+struct gzip_trailer {
     uint32_t crc32;          // Cyclic Redundancy Check value
     uint32_t uncomp_len;     // Uncompressed length of original input data
 };
@@ -50,10 +49,7 @@ struct gzip_trailer
 #define CHUNKED    2
 #define BOTH       3
 
-// Parser returns
-#define PARSE_SUCCESS 1
-#define PARSE_FAILURE 0
-
+// Protocols to look for
 #define NUM_PROTOS 3
 const char *protocols[NUM_PROTOS] = {"http://", "https://", "ftp://"};
 
@@ -62,11 +58,9 @@ const char *protocols[NUM_PROTOS] = {"http://", "https://", "ftp://"};
 // Shitty, I know...
 string host;
 
-int parseHTML(char *buf, size_t buf_len)
+// bool parseHTML(char *buf, size_t buf_len)
+bool parseHTML(char *buf)
 {
-    cerr << __func__ << endl;
-    cerr << "size of buf: " << strlen(buf) << endl << endl;
-
     forward_list<string> page;
     forward_list<string>::iterator it;
     istringstream iss(buf);
@@ -82,12 +76,12 @@ int parseHTML(char *buf, size_t buf_len)
             page.emplace_after(it, str);
         }
     } else {
-        return PARSE_FAILURE;
+        return false;
     }
     
     // Print the list of html lines.
-    for (it = page.begin(); it != page.end(); ++it) 
-        cout << *it << endl;
+    // for (it = page.begin(); it != page.end(); ++it) 
+    //     cout << *it << endl;
 
     //collect all of the links in a page
     list<string> local_links;
@@ -106,7 +100,7 @@ int parseHTML(char *buf, size_t buf_len)
     // if it has an href, parse out the link
     for (it = page.begin(); it != page.end(); ++it) {
         offset = it->find("href=\""); 
-
+        
         if (offset != string::npos) {
             // find the ending quote for the link, and push the url int
             // cout << *it << endl;
@@ -167,30 +161,30 @@ int parseHTML(char *buf, size_t buf_len)
         }
     }
 
-    // cout << "Remote Links:" << endl;
-    // for (itr = remote_links.begin(); itr != remote_links.end(); ++itr) 
-    //     cout << *itr << endl;
-    // cout << endl << "Local Links:" << endl;
-    // for (itr = local_links.begin(); itr != local_links.end(); ++itr) 
-    //     cout << *itr << endl;
+    cout << "Remote Links:" << endl;
+    for (itr = remote_links.begin(); itr != remote_links.end(); ++itr) 
+        cout << *itr << endl;
+    cout << endl << "Local Links:" << endl;
+    for (itr = local_links.begin(); itr != local_links.end(); ++itr) 
+        cout << *itr << endl;
 
-    // // TODO: the value 1 should be a user-configured threshold
-    // // TODO: subdomain issues
-    // // also, whitelist? .edu, google.com domain
-    // list<pair<string, unsigned int> >::iterator dom_itr = domains.begin();
-    // for ( ; dom_itr != domains.end(); ++dom_itr) {
-    //     if (dom_itr->second > 1) {
-    //         cout << "WARNING: " << dom_itr->first << " is a suspicious URL." << endl;
-    //         cout << "It was sequentially linked " << dom_itr->second << 
-    //             " times in close proximity." << endl;
-    //         cout << "Please check this location." << endl << endl;
-    //     }
-    // }
+    // TODO: the value 1 should be a user-configured threshold
+    // TODO: subdomain issues
+    // also, whitelist? .edu, google.com domain
+    list<pair<string, unsigned int> >::iterator dom_itr = domains.begin();
+    for ( ; dom_itr != domains.end(); ++dom_itr) {
+        if (dom_itr->second > 1) {
+            cout << "WARNING: " << dom_itr->first << " is a suspicious URL." << endl;
+            cout << "It was sequentially linked " << dom_itr->second << 
+                " times in close proximity." << endl;
+            cout << "Please check this location." << endl << endl;
+        }
+    }
 
     
-    // cout << endl << "----------Numbers-----------" << endl;
-    // cout << "Remote Links: " << remote_links.size() << endl;
-    // cout << "Local Links: " << local_links.size() << endl << endl << endl;
+    cout << endl << "----------Numbers-----------" << endl;
+    cout << "Remote Links: " << remote_links.size() << endl;
+    cout << "Local Links: " << local_links.size() << endl << endl << endl;
 
 
     // for (it = page.begin(); it != page.end(); ++it) 
@@ -207,21 +201,18 @@ int parseHTML(char *buf, size_t buf_len)
     // check if a lot of the links navigate outside of the website
     
 
-    return PARSE_SUCCESS;
+    return true;
 }
 
-int decompress(string compression, unique_ptr<char[]> pBuf, size_t buf_len) 
+bool decompress(string compression, unique_ptr<char[]> pBuf, size_t buf_len) 
 {
-    // cout << __func__ << ": " << compression << endl;
-    // cout.write(pBuf.get(), buf_len);
-    // cout << endl << endl << endl;
     // zlib should work on the gzip and deflate encodings.
     // Need to test deflate though, can't find one that uses it (so maybe I don't need to worry about it).
     if (strncmp(compression.c_str(), "gzip", 4) == 0 || strncmp(compression.c_str(), "deflate", 7) == 0) 
     {
-        struct gzip_trailer *gz_trailer = (struct gzip_trailer *)(pBuf.get() + buf_len - GZIP_TRAILER_LEN);
         int err, ret;
 
+        struct gzip_trailer *gz_trailer = (struct gzip_trailer *)(pBuf.get() + buf_len - GZIP_TRAILER_LEN);
         uLongf uncomp_len = (uLongf)gz_trailer->uncomp_len;
         unique_ptr<Bytef[]> pUncomp(new Bytef[uncomp_len]);
 
@@ -246,29 +237,24 @@ int decompress(string compression, unique_ptr<char[]> pBuf, size_t buf_len)
         if (err < 0)
             cout << "inflate Error: " << err << ": " << d_stream.msg << endl;
         
-        // cout << "Decompressed Buffer: ";
-        // cout.write((char *)pUncomp.get(), uncomp_len);
-        // cout << endl;
-
-        ret = parseHTML((char *)pUncomp.get(), uncomp_len);
+        // ret = parseHTML((char *)pUncomp.get(), uncomp_len);
+        ret = parseHTML((char *)pUncomp.get());
         return ret;
-    }
-    else 
-        cout << "Error! not in gzip for decompression" << endl;
-    return PARSE_FAILURE;
+    } 
+    
+    cout << "Error! not in gzip for decompression" << endl;
+    return false;
 }
 
-int parseHTTP(ifstream& in, map<string, string>& header)
+bool parseHTTP(ifstream& in, map<string, string>& header)
 {
-    // cout << __func__ << endl;
-    
     map<string, string>::iterator itr;
     string line;
     size_t length; 
 
-    // Initialized return value to PARSE_FAILURE.
-    // Let the returns from decompression and parseHTML turn it into PARSE_SUCCESS.
-    int ret = PARSE_FAILURE;
+    // Initialized return value to false.
+    // Let the returns from decompression and parseHTML turn it into true.
+    int ret = false;
 
     // Tally for what combination of Chunked and/or Compressed it is.
     int text_option = 0;
@@ -294,7 +280,8 @@ int parseHTTP(ifstream& in, map<string, string>& header)
             unique_ptr<char[]> pBuf(new char[length]);
             in.read(pBuf.get(), length);
             //cout.write(buf.get(), length);
-            ret = parseHTML((char *)pBuf.get(), length);
+            // ret = parseHTML((char *)pBuf.get(), length);
+            ret = parseHTML((char *)pBuf.get());
         } 
         else if (strncmp(itr->second.c_str(), "text/css", 8))
         {
@@ -302,7 +289,8 @@ int parseHTTP(ifstream& in, map<string, string>& header)
             unique_ptr<char[]> pBuf(new char[length]);
             in.read(pBuf.get(), length);
             //cout.write(buf.get(), length);
-            ret = parseHTML((char *)pBuf.get(), length);
+            // ret = parseHTML((char *)pBuf.get(), length);
+            ret = parseHTML((char *)pBuf.get());
         }
         break;
     }
@@ -330,7 +318,8 @@ int parseHTTP(ifstream& in, map<string, string>& header)
             length = strtoul(line.c_str(),NULL,16);
 
             //cout.write(buf,length);
-            parseHTML((char *)pBuf.get(), length);
+            // parseHTML((char *)pBuf.get(), length);
+            parseHTML((char *)pBuf.get());
         }
         
         // Once it gets to this point, the chunked length last fed was 0
@@ -338,7 +327,7 @@ int parseHTTP(ifstream& in, map<string, string>& header)
         getline(in,line);
 
         // TODO: Return value for this. Multiple parseHTML calls equates to...?
-        ret = PARSE_SUCCESS;
+        ret = true;
         break;
     }
     case COMPRESSED:
@@ -353,10 +342,9 @@ int parseHTTP(ifstream& in, map<string, string>& header)
     case BOTH:
     {
         size_t totalLength = 0;
-
+        
         // Get the first chunk length.
         getline(in,line);
-
         length = strtoul(line.c_str(),NULL,16);
 
         // Repeat reading the buffer and new chunk length until the length is 0.
@@ -365,6 +353,7 @@ int parseHTTP(ifstream& in, map<string, string>& header)
         while (length != 0) 
         {
             totalLength += length;
+
             char *chunk = new char[length];
             // unique_ptr<char[]> pChunk(new char[length]);
             in.read(chunk, length);
@@ -388,19 +377,19 @@ int parseHTTP(ifstream& in, map<string, string>& header)
         // Get last CLRF and quit
         getline(in,line);
 
-        // unique_ptr<char[]> pBuf(new char[oss.str().size()]);
-        // strncpy(pBuf.get(), oss.str().c_str(), oss.str().size());
-        // cout.write(pBuf.get(), totalLength);
+        if (oss.str().size() != totalLength) {
+            cout << "Error! stringstream length" << endl;
+            return false;
+        }
 
-        unique_ptr<char[]> pBuf(new char[oss.str().size() + 1]);
-        memcpy(pBuf.get(), oss.str().c_str(), oss.str().size() + 1);
+        unique_ptr<char[]> pBuf(new char[totalLength + 1]);
+        memcpy(pBuf.get(), oss.str().c_str(), totalLength + 1);
         
         ret = decompress(header["Content-Encoding"], std::move(pBuf), totalLength);
         break;
     }
     default:
         break;
-
     }
 
     return ret;
