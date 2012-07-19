@@ -164,9 +164,7 @@ void inspectKeywords(const forward_list<string>& page)
     forward_list<string>::const_iterator it;
     int frequency[NUM_CATEGORIES][NUM_KEYWORDS];
     string link;
-
     size_t offset;
-    // size_t span;
 
     // set the inital frequencies to 0
     memset(frequency, 0, sizeof(int) * NUM_CATEGORIES * NUM_KEYWORDS);

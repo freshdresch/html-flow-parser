@@ -30,6 +30,15 @@ const char *protocols[NUM_PROTOS] = {"http://", "https://", "ftp://"};
 #define NUM_CATEGORIES 8
 #define NUM_KEYWORDS   10
 
+#define MEDS       1
+#define SITE       1 << 1
+#define SHOPPING   1 << 2
+#define PORN       1 << 3
+#define HOMEOWNER  1 << 4
+#define SERVER     1 << 5
+#define GAMBLING   1 << 6
+#define FITNESS    1 << 7
+
 const char *meds[NUM_KEYWORDS] = {"hormone", "sildenafil", "medication", "cure",
                         "sexual", "impotence", "levitra", "erection",
                         "cialis", "viagra"};
