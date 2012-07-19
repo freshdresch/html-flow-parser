@@ -230,8 +230,8 @@ void tcpip::close_file()
                 demux.finished_flows[itr - demux.finished_flows.begin()].first + 
                 "-" + demux.finished_flows[itr - demux.finished_flows.begin()].second;
 
-            // call html_parser on the inbound-outbound pair of flows
-            const std::string command = "./html_parser " + flow_pathname + " " + file_pair;
+            // call HTMLparser on the inbound-outbound pair of flows
+            const std::string command = "./HTMLparser " + flow_pathname + " " + file_pair;
             int ret = system(command.c_str());
             if (ret == -1) {
                 perror("system");

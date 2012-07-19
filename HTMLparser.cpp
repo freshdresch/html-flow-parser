@@ -36,16 +36,14 @@
 
 using namespace std;
 
-// TODO: see if I can combine the printing for Links and HTML
-// the only difference is the data structure.  Should be able
-// to template.
-void printLinks(const list<string>& links)
+template<typename T>
+void printContainer(const T& container) 
 {
-    list<string>::const_iterator it;
-    for (it = links.begin(); it != links.end(); ++it) 
+    typename T::const_iterator it;
+    for (it = container.begin(); it != container.end(); ++it) 
         cout << *it << endl;
     cout << endl;
- }
+}
 
 void inspectLinks(const forward_list<string>& page)
 {
@@ -133,9 +131,9 @@ void inspectLinks(const forward_list<string>& page)
     }
 
     cout << "Remote Links:" << endl;
-    printLinks(remote_links);
+    printContainer(remote_links);
     cout << endl << "Local Links:" << endl;
-    printLinks(local_links);
+    printContainer(remote_links);
 
     // TODO: the value 1 should be a user-configured threshold
     // TODO: subdomain issues
@@ -159,53 +157,38 @@ void inspectLinks(const forward_list<string>& page)
 void inspectKeywords(const forward_list<string>& page)
 {
     // regular expressions would probably be really helpful for this
-    int frequency[NUM_CATEGORIES][NUM_KEYWORDS];
     forward_list<string>::const_iterator it;
+    int frequency[NUM_CATEGORIES][NUM_KEYWORDS];
     string link;
     size_t offset;
-    size_t span;
+    // size_t span;
 
-    // I don't like having to freaking triple loop
-    // TODO: think about a better way.
-    for (it = page.begin(); it != page.end(); ++it) {
-        for (int i = 0; i < NUM_CATEGORIES; ++i) {
-            for (int j = 0; j < NUM_KEYWORDS; ++j) {
-                offset = it->find(all_keywords[i][j]); 
-                
-                if (offset != string::npos) {
-                    span = it->substr(offset+6).find("\"");
-                    link = it->substr(offset+6,span);
-                    
-                    // for (int i = 0; i < NUM_PROTOS; ++i) {
-                    //     if (strncmp(link.c_str(),protocols[i],
-                    //                 strlen(protocols[i])) == 0) {
-                    //         remote = true;
-                    //         break;
-                    //     } 
-                    // }
-                    
-                    // if (remote) {
-                    //     remote_links.push_back(link);
-                    // } else {
-                    //     // ignore in-page references
-                    //     if (strncmp(link.c_str(),"#",1) != 0)
-                    //         local_links.push_back(link);
-                    // }
-                    
-                    // remote = false;
-                }
-            }
-        }
-    }
-}
+    // set the inital frequencies to 0
+    memset(frequency, 0, sizeof(int) * NUM_CATEGORIES * NUM_KEYWORDS);
 
-void printHTML(const forward_list<string>& page) 
-{
-    // Print the list of html lines.
-    forward_list<string>::const_iterator it;
-    for (it = page.begin(); it != page.end(); ++it) 
-        cout << *it << endl;
-    cout << endl;
+    // // I don't like having to freaking triple loop
+    // // TODO: think about a better way.
+    // for (it = page.begin(); it != page.end(); ++it) {
+    //     for (int i = 0; i < NUM_CATEGORIES; ++i) {
+    //         for (int j = 0; j < NUM_KEYWORDS; ++j) {
+    //             offset = it->find(all_keywords[i][j]); 
+    //             while (offset != string::npos) {
+    //                 frequency[i][j]++;
+    //                 link = it->substr(offset + strlen(all_keywords[i][j]));
+    //                 offset = link.find(all_keywords[i][j]);
+    //             }
+    //         }
+    //     }
+    // }
+
+    // for (int i = 0; i < NUM_CATEGORIES; ++i) {
+    //     cout << i << ":\t";
+    //     for (int j = 0; j < NUM_CATEGORIES; ++j) 
+    //         cout << frequency[i][j] << " ";
+    //     cout << endl;
+    // }
+
+    // printContainer(page);
 }
 
 bool parseHTML(char *buf)
@@ -229,9 +212,9 @@ bool parseHTML(char *buf)
     }
     
 
-    // inspectLinks(page);
+    inspectLinks(page);
 
-    inspectKeywords(page);
+    // inspectKeywords(page);
 
     return true;
 }
