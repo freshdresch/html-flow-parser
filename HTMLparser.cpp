@@ -156,37 +156,63 @@ void inspectLinks(const forward_list<string>& page)
 
 void inspectKeywords(const forward_list<string>& page)
 {
+    // TODO: make sure none of the keywords we're using source code keywords
+    // form appears to be so, especially for what looks to be BBcode forums
+    // TODO: allow the keyword test to be configured
+    
     // regular expressions would probably be really helpful for this
     forward_list<string>::const_iterator it;
     int frequency[NUM_CATEGORIES][NUM_KEYWORDS];
     string link;
+
     size_t offset;
     // size_t span;
 
     // set the inital frequencies to 0
     memset(frequency, 0, sizeof(int) * NUM_CATEGORIES * NUM_KEYWORDS);
 
-    // // I don't like having to freaking triple loop
-    // // TODO: think about a better way.
-    // for (it = page.begin(); it != page.end(); ++it) {
-    //     for (int i = 0; i < NUM_CATEGORIES; ++i) {
-    //         for (int j = 0; j < NUM_KEYWORDS; ++j) {
-    //             offset = it->find(all_keywords[i][j]); 
-    //             while (offset != string::npos) {
-    //                 frequency[i][j]++;
-    //                 link = it->substr(offset + strlen(all_keywords[i][j]));
-    //                 offset = link.find(all_keywords[i][j]);
-    //             }
-    //         }
-    //     }
-    // }
+    // I don't like having to freaking triple loop
+    // TODO: think about a better way.
+    for (it = page.begin(); it != page.end(); ++it) {
+        link = *it;
+        for (int i = 0; i < NUM_CATEGORIES; ++i) {
+            for (int j = 0; j < NUM_KEYWORDS; ++j) {
+                offset = link.find(all_keywords[i][j]); 
+                while (offset != string::npos) {
+                    frequency[i][j]++;
+                    link = link.substr(offset + strlen(all_keywords[i][j]));
+                    offset = link.find(all_keywords[i][j]);
+                }
+            }
+        }
+    }
 
-    // for (int i = 0; i < NUM_CATEGORIES; ++i) {
-    //     cout << i << ":\t";
-    //     for (int j = 0; j < NUM_CATEGORIES; ++j) 
-    //         cout << frequency[i][j] << " ";
-    //     cout << endl;
-    // }
+    bool suspicious = false;
+    for (int i = 0; i < NUM_CATEGORIES; ++i) {
+        cout << i << ":\t";
+        for (int j = 0; j < NUM_CATEGORIES; ++j) {
+            cout << frequency[i][j] << " ";
+            if (frequency[i][j] > 1)
+                suspicious = true;
+        }
+        cout << endl;
+    }
+    cout << endl;
+
+    if (suspicious) {
+        cout << "WARNING: this webpage has suspicious keyword repetition!" << endl;
+        cout << "If the following keywords do not reflect the nature of your website, " << 
+            "please act immediately." << endl;
+    }
+    
+    for (int i = 0; i < NUM_CATEGORIES; ++i) {
+        for (int j = 0; j < NUM_CATEGORIES; ++j) {
+            if (frequency[i][j] > 1) {
+                cout << "The keyword \"" << all_keywords[i][j] << "\" was repeated " <<
+                    frequency[i][j] << " times." << endl;
+            }
+        }
+    }
 
     // printContainer(page);
 }
@@ -212,9 +238,9 @@ bool parseHTML(char *buf)
     }
     
 
-    inspectLinks(page);
+    // inspectLinks(page);
 
-    // inspectKeywords(page);
+    inspectKeywords(page);
 
     return true;
 }
