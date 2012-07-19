@@ -1,4 +1,13 @@
+Look into newline issue.
+
+Think about regex by chance.
+
+Think about way to generalize the different html tests so they can be "inserted" like a module.
+Also, look to refactor the parsing flow.
+
 It looks like it will eventually be a testing suite.  Say url-tester, keyword-tester, etc.
+
+There can be javascript urls too.
 
 Do a literature survey on black-hat seo. See if there are any techniques out there that 
 people have published. Also, look for more compromised sites so I can get a large dataset.
@@ -8,4 +17,3 @@ Work out return values for the two cases in the http parsing.
 I don't like that we call tcpflow instead of http_parser, even though http_parser is the 
 whole point of the program.
 
-Try to avoid the hardcoded directory.

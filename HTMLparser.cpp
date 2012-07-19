@@ -16,13 +16,14 @@
  */
 
 #include "pna.h"
+#include "HTMLparser.h"
 
 #include <iostream>
 #include <sstream>
 #include <fstream>
 #include <list>
 #include <map>
-#include <stdint.h>
+
 #include <cstdlib>
 #include <string.h>
 #include <string>
@@ -35,60 +36,27 @@
 
 using namespace std;
 
-
-// Trailer for gzip compression
-struct gzip_trailer {
-    uint32_t crc32;          // Cyclic Redundancy Check value
-    uint32_t uncomp_len;     // Uncompressed length of original input data
-};
-#define GZIP_TRAILER_LEN 8
-
-// HTTP text options
-#define NONE       0
-#define COMPRESSED 1
-#define CHUNKED    2
-#define BOTH       3
-
-// Protocols to look for
-#define NUM_PROTOS 3
-const char *protocols[NUM_PROTOS] = {"http://", "https://", "ftp://"};
-
-// Either make the host global or make it an argument through 
-// 3 functions where it's only needed in the last one.
-// Shitty, I know...
-string host;
-
-// bool parseHTML(char *buf, size_t buf_len)
-bool parseHTML(char *buf)
+// TODO: see if I can combine the printing for Links and HTML
+// the only difference is the data structure.  Should be able
+// to template.
+void printLinks(const list<string>& links)
 {
-    forward_list<string> page;
-    forward_list<string>::iterator it;
-    istringstream iss(buf);
-    string str;
+    list<string>::const_iterator it;
+    for (it = links.begin(); it != links.end(); ++it) 
+        cout << *it << endl;
+    cout << endl;
+ }
 
-
-    // Put each line in the forward iterator.
-    // I put the buffer in the string stream to have access to getline.
-    it = page.before_begin();
-    if (iss.good()) {
-        while(!iss.eof()) {
-            getline(iss,str);
-            page.emplace_after(it, str);
-        }
-    } else {
-        return false;
-    }
-    
-    // Print the list of html lines.
-    // for (it = page.begin(); it != page.end(); ++it) 
-    //     cout << *it << endl;
+void inspectLinks(const forward_list<string>& page)
+{
+    forward_list<string>::const_iterator it;
 
     //collect all of the links in a page
     list<string> local_links;
     list<string> remote_links;
     list<pair<string, unsigned int> > domains;
     list<string>::iterator itr;
-
+    
     string link;
     size_t offset;
     size_t span;
@@ -101,6 +69,9 @@ bool parseHTML(char *buf)
     for (it = page.begin(); it != page.end(); ++it) {
         offset = it->find("href=\""); 
         
+        // TODO: change this to the ability to catch  multiple hrefs per line
+        // TODO: consider regular expressions, but not worthwhile during the 10 weeks
+        // necessary for the gameforum case where it has all of the html on one line
         if (offset != string::npos) {
             // find the ending quote for the link, and push the url int
             // cout << *it << endl;
@@ -109,7 +80,7 @@ bool parseHTML(char *buf)
             link = it->substr(offset+6,span);
             
             for (int i = 0; i < NUM_PROTOS; ++i) {
-                if (strncmp(link.c_str(),protocols[i], 
+                if (strncmp(link.c_str(),protocols[i],
                             strlen(protocols[i])) == 0) {
                     remote = true;
                     break;
@@ -162,11 +133,9 @@ bool parseHTML(char *buf)
     }
 
     cout << "Remote Links:" << endl;
-    for (itr = remote_links.begin(); itr != remote_links.end(); ++itr) 
-        cout << *itr << endl;
+    printLinks(remote_links);
     cout << endl << "Local Links:" << endl;
-    for (itr = local_links.begin(); itr != local_links.end(); ++itr) 
-        cout << *itr << endl;
+    printLinks(local_links);
 
     // TODO: the value 1 should be a user-configured threshold
     // TODO: subdomain issues
@@ -185,21 +154,84 @@ bool parseHTML(char *buf)
     cout << endl << "----------Numbers-----------" << endl;
     cout << "Remote Links: " << remote_links.size() << endl;
     cout << "Local Links: " << local_links.size() << endl << endl << endl;
+}
+
+void inspectKeywords(const forward_list<string>& page)
+{
+    // regular expressions would probably be really helpful for this
+    int frequency[NUM_CATEGORIES][NUM_KEYWORDS];
+    forward_list<string>::const_iterator it;
+    string link;
+    size_t offset;
+    size_t span;
+
+    // I don't like having to freaking triple loop
+    // TODO: think about a better way.
+    for (it = page.begin(); it != page.end(); ++it) {
+        for (int i = 0; i < NUM_CATEGORIES; ++i) {
+            for (int j = 0; j < NUM_KEYWORDS; ++j) {
+                offset = it->find(all_keywords[i][j]); 
+                
+                if (offset != string::npos) {
+                    span = it->substr(offset+6).find("\"");
+                    link = it->substr(offset+6,span);
+                    
+                    // for (int i = 0; i < NUM_PROTOS; ++i) {
+                    //     if (strncmp(link.c_str(),protocols[i],
+                    //                 strlen(protocols[i])) == 0) {
+                    //         remote = true;
+                    //         break;
+                    //     } 
+                    // }
+                    
+                    // if (remote) {
+                    //     remote_links.push_back(link);
+                    // } else {
+                    //     // ignore in-page references
+                    //     if (strncmp(link.c_str(),"#",1) != 0)
+                    //         local_links.push_back(link);
+                    // }
+                    
+                    // remote = false;
+                }
+            }
+        }
+    }
+}
+
+void printHTML(const forward_list<string>& page) 
+{
+    // Print the list of html lines.
+    forward_list<string>::const_iterator it;
+    for (it = page.begin(); it != page.end(); ++it) 
+        cout << *it << endl;
+    cout << endl;
+}
+
+bool parseHTML(char *buf)
+{
+    forward_list<string> page;
+    forward_list<string>::iterator it;
+    istringstream iss(buf);
+    string str;
 
 
-    // for (it = page.begin(); it != page.end(); ++it) 
-    // {
-    //     offset = it->find("href=\""); 
-    //     if (offset != string::npos)
-    //         links.push_back(*it);
-    // }
-
-    // print the links
-    // for (itr = links.begin(); itr != links.end(); ++itr)
-    //     cout << *itr << endl;
-    // cout << "num links: " << links.size() << endl;
-    // check if a lot of the links navigate outside of the website
+    // Put each line in the forward iterator.
+    // I put the buffer in the string stream to have access to getline.
+    it = page.before_begin();
+    if (iss.good()) {
+        while(!iss.eof()) {
+            getline(iss,str);
+            page.emplace_after(it, str);
+        }
+    } else {
+        return false;
+    }
     
+
+    // inspectLinks(page);
+
+    inspectKeywords(page);
 
     return true;
 }
@@ -437,7 +469,7 @@ int main(int argc, char **argv)
         } else {
             // not communication between the server and the client
             // quit
-            cerr << "No communication to the website's server. Exiting..." << endl;
+            cout << "No communication to the website's server. Exiting..." << endl;
             exit(0);
         }
 
