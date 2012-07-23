@@ -434,181 +434,228 @@ bool parseHTTP(ifstream& in, map<string, string>& header)
     return ret;
 }
 
-int main(int argc, char **argv) 
+void getResponse(char *flows[])
 {
+    map<string, string> header;
+    ifstream in;
+
     string line; 
     size_t offset;
     size_t host_off;
 
-    // If argc is three, respective outbound and inbound flow files should be the arguments.
-    if (argc == 3)
-    {
-        map<string, string> header;
-        ifstream in;
 
-        char portOne[5], portTwo[5];
-        int outbound;
-        int inbound;
+    // const char *flows[] = {flowOne, flowTwo}; 
+    int outbound;
+    int inbound;
+    char portOne[5], portTwo[5];
+    const int tcp_port = 80;
 
+    /*
+     * Check the destination port of the first file.
+     * If it is 80, then it's the outbound file.
+     * If not, then it's the inbound file.
+     * Set the file's argument number accordingly.
+     */
+    strncpy(portOne, flows[0] + strlen(flows[0]) - 5, 5);
+    strncpy(portTwo, flows[1] + strlen(flows[1]) - 5, 5);
 
-        /*
-         * Eliminate some magic numbers
-         * I did have 5 as a const size_t, but it threw a warning for strncpy...
-         * Live with the magic number. Spoilers: it's the length of a port number.
-         */
-        const int tcp_port = 80;
-
-        /*
-         * Check the destination port of the first file.
-         * If it is 80, then it's the outbound file.
-         * If not, then it's the inbound file.
-         * Set the file's argument number accordingly.
-         */
-        strncpy(portOne, argv[1] + strlen(argv[1]) - 5, 5);
-        strncpy(portTwo, argv[2] + strlen(argv[2]) - 5, 5);
-
-        if (atoi(portOne) == tcp_port) {
-            outbound = 1;
-            inbound = 2;
-        } else if (atoi(portTwo) == tcp_port) {
-            inbound = 1;
-            outbound = 2;
-        } else {
-            // not communication between the server and the client
-            // quit
-            cout << "No communication to the website's server. Exiting..." << endl;
-            exit(0);
-        }
-
-        // Get the hostname
-        in.open(argv[outbound]);
-        if (in.is_open()) {
-            while (!in.eof()) {
-                // search for a GET request that specifies the host
-                // should be the first line, so quit after we find it
-                getline(in, line);
-
-                host_off = line.find("Host: ");
-                if (host_off != string::npos) {
-                    host = line.substr(host_off + 6);
-
-                    host_off = host.find("\r");
-                    if (host_off != string::npos) 
-                        host = host.substr(0,host_off);
-
-                    break;
-                }
-            }
-        }
-        in.close();
-
-        // cout << "*************** Host: " << host << " ***************"<< endl;
-
-        // Let's parse some replies!
-        in.open(argv[inbound]);
-        if (in.is_open()) 
-        {
-            while (!in.eof()) 
-            {
-                // Search for the "HTTP/1.1 200 OK" line.
-                getline(in, line);
-
-                offset = line.find("HTTP/1.1 200 OK");
-                if (offset != string::npos) 
-                {
-                    // We found the reply.
-                    header["HTTP/1.1"] = "200 OK";
-
-                    // Read the HTTP header labels and values into our map.
-                    // The header ending is denoted by a carriage return '\r'.
-                    getline(in, line);
-                    while (line != "\r") 
-                    {
-                        offset = line.find(":");
-                        header[line.substr(0, offset)] = line.substr(offset + 2);
-                        getline(in, line);
-                    }
-
-                    // Print the http header
-                    // map<string, string>::iterator it;
-                    // for (it = header.begin(); it != header.end(); ++it)
-                    //     cout << it->first << ": " << it->second << endl;
-                    // cout << endl;
-
-                    // Send the HTTP header and our ifstream to parseHTTP.
-                    parseHTTP(in, header);
-
-                    // Clear the header map for the next reply found in the file.
-                    header.clear();
-                }
-            }
-        } 
-        else 
-            cout << "Error! File did not open correctly." << endl;
-        
-        in.close();
-    }
-    // Input is piped to our program from stdout with our pcap_wrap format.
-    else if (argc == 1)
-    {
-        map<string, string> key;
-        string first, second;
-        unsigned long length;
-        size_t span;
-
-        while(!cin.eof())
-        {
-            // Get the six lines pertinent to our TCP flows, put them in our key map.
-            for (int i = 0; i < 6; ++i)
-            {
-                getline(cin, line);
-                
-                offset = line.find("->");
-                span = line.find(":"); 
-
-                if (offset != string::npos && span != string::npos)
-                {
-                    second = line.substr(span+2);
-                    first = line.substr(offset+2, span - offset - 2);
-                    key[first] = second; 
-                }
-            }
-
-            // Print the key.
-            map<string, string>::iterator it;
-            for (it = key.begin(); it != key.end(); ++it)
-                cout << it->first << ": " << it->second << endl;
-
-            // Get the packet information. This line specifically is packet length.
-            getline(cin, line);
-            offset = line.find(":");
-            if (offset != string::npos)
-            {
-                // The length line exists.  Read that length of data from cin soon.
-                length = atoi(line.substr(offset+2).c_str());
-                unique_ptr<char[]> pBuf(new char[length]);
-
-                // Consume the packet_data label.
-                getline(cin, line);
-                
-                // Get the packet data.
-                cin.read(pBuf.get(), length);
-
-                // TODO: Here is the exit point from main.
-                // Guessing this will go to the hashmap? We'll see when it's developed.
-
-                cout.write(pBuf.get(), length);
-            }
-
-            // Clear the key map for other packet keys.
-            key.clear();
-        }
+    if (atoi(portOne) == tcp_port) {
+        outbound = 0;
+        inbound = 1;
+    } else if (atoi(portTwo) == tcp_port) {
+        inbound = 0;
+        outbound = 1;
     } else {
-        cout << "Usage: html_parser outbound-flow inbound-flow" << endl;
-        cout << "[NOTE] the flow order is not important" << endl;
+        // not communication between the server and the client
+        // quit
+        cout << "No communication to the website's server. Exiting..." << endl;
+        exit(0);
     }
 
+    // Get the hostname
+    in.open(flows[outbound]);
+    if (in.is_open()) {
+        while (!in.eof()) {
+            // search for a GET request that specifies the host
+            // should be the first line, so quit after we find it
+            getline(in, line);
+
+            host_off = line.find("Host: ");
+            if (host_off != string::npos) {
+                host = line.substr(host_off + 6);
+
+                host_off = host.find("\r");
+                if (host_off != string::npos) 
+                    host = host.substr(0,host_off);
+                
+                break;
+            }
+        }
+    }
+    in.close();
+
+    // Let's parse some replies!
+    in.open(flows[inbound]);
+    if (in.is_open()) {
+        while (!in.eof()) {
+            // Search for the "HTTP/1.1 200 OK" line.
+            getline(in, line);
+
+            offset = line.find("HTTP/1.1 200 OK");
+            if (offset != string::npos) { 
+                // We found the reply.
+                header["HTTP/1.1"] = "200 OK";
+
+                // Read the HTTP header labels and values into our map.
+                // The header ending is denoted by a carriage return '\r'.
+                getline(in, line);
+                while (line != "\r") {
+                    offset = line.find(":");
+                    header[line.substr(0, offset)] = line.substr(offset + 2);
+                    getline(in, line);
+                }
+
+                // Print the http header
+                // map<string, string>::iterator it;
+                // for (it = header.begin(); it != header.end(); ++it)
+                //     cout << it->first << ": " << it->second << endl;
+                // cout << endl;
+
+                // Send the HTTP header and our ifstream to parseHTTP.
+                parseHTTP(in, header);
+
+                // Clear the header map for the next reply found in the file.
+                header.clear();
+            }
+        }
+    } else  {
+        cerr << "Error! File did not open correctly." << endl;
+    }
+
+    in.close();
+}
+
+void printUsage()
+{
+    cout << "Usage: HTMLparser <options> outbound-flow inbound-flow" << endl;
+    cout << "options:" << endl;
+    cout << "  -c : perform keyword search, specify the target categories." << endl;
+    cout << "\tCategories:" << endl;
+    cout << "\tm : medication-themed keywords. Example: viagra" << endl;
+    cout << "\tl : login-themed keywords. Example: password" << endl;
+    cout << "\to : order-themed keywords. Example: discount" << endl;
+    cout << "\tp : pornographic-themed keywords. Example: busty" << endl;
+    cout << "\th : house-themed keywords. Example: mortgage" << endl;
+    cout << "\ts : server-themed keywords. Example: proxy" << endl;
+    cout << "\tg : gambling-themed keywords. Example: blackjack" << endl;
+    cout << "\tf : fitness-themed keywords. Example: antioxidant" << endl;
+    cout << "  -h : display help" << endl;
+}
+
+int main(int argc, char **argv) 
+{
+    char *cval = NULL;
+    int c;
+
+    while ((c = getopt (argc, argv, "c:h ")) != -1) {
+        switch (c) {
+        case 'c':
+            cval = optarg;
+            break;
+        case 'h':
+            printUsage();
+            return EXIT_SUCCESS;
+            break;
+        case '?':
+            if (optopt == 'c')
+                cerr << "Option -" << optopt << " requres an argument." << endl;
+            else if (isprint(optopt))
+                cerr << "Unknown option -" << optopt << "." << endl;
+            else
+                cerr << "Unknown option character " << optopt << "." << endl;
+            return EXIT_FAILURE;
+        default:
+            return EXIT_FAILURE;
+        }
+    }
+
+    if (argc < optind + 2) {
+        printUsage();
+        return EXIT_FAILURE;
+    }
+
+
+    char *flows[2];
+        
+    if (argc == optind + 2) {
+        flows[0] = argv[optind];
+        flows[1] = argv[optind+1];
+    } else {
+        cerr << "Too many args!" << endl;
+        printUsage();
+        return EXIT_FAILURE;
+    }
+
+    getResponse(flows);
 
     return 0;
 }
+
+
+// Input is piped to our program from stdout with our pcap_wrap format.
+// else if (argc == 1)
+// {
+//     map<string, string> key;
+//     string first, second;
+//     unsigned long length;
+//     size_t span;
+
+//     while(!cin.eof())
+//     {
+//         // Get the six lines pertinent to our TCP flows, put them in our key map.
+//         for (int i = 0; i < 6; ++i)
+//         {
+//             getline(cin, line);
+                
+//             offset = line.find("->");
+//             span = line.find(":"); 
+
+//             if (offset != string::npos && span != string::npos)
+//             {
+//                 second = line.substr(span+2);
+//                 first = line.substr(offset+2, span - offset - 2);
+//                 key[first] = second; 
+//             }
+//         }
+
+//         // Print the key.
+//         map<string, string>::iterator it;
+//         for (it = key.begin(); it != key.end(); ++it)
+//             cout << it->first << ": " << it->second << endl;
+
+//         // Get the packet information. This line specifically is packet length.
+//         getline(cin, line);
+//         offset = line.find(":");
+//         if (offset != string::npos)
+//         {
+//             // The length line exists.  Read that length of data from cin soon.
+//             length = atoi(line.substr(offset+2).c_str());
+//             unique_ptr<char[]> pBuf(new char[length]);
+
+//             // Consume the packet_data label.
+//             getline(cin, line);
+                
+//             // Get the packet data.
+//             cin.read(pBuf.get(), length);
+
+//             // TODO: Here is the exit point from main.
+//             // Guessing this will go to the hashmap? We'll see when it's developed.
+
+//             cout.write(pBuf.get(), length);
+//         }
+
+//         // Clear the key map for other packet keys.
+//         key.clear();
+//     }
+// } 
 
