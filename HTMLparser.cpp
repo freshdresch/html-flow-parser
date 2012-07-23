@@ -25,8 +25,7 @@
 #include <map>
 
 #include <cstdlib>
-#include <string.h>
-#include <string>
+#include <cstring>
 #include <zlib.h>
 
 // C++11 includes
@@ -162,26 +161,65 @@ void inspectKeywords(const forward_list<string>& page)
     
     // regular expressions would probably be really helpful for this
     forward_list<string>::const_iterator it;
-    int frequency[NUM_CATEGORIES][NUM_KEYWORDS];
+    int frequency[num_selected][NUM_KEYWORDS];
     string link;
     size_t offset;
 
     // set the inital frequencies to 0
-    memset(frequency, 0, sizeof(int) * NUM_CATEGORIES * NUM_KEYWORDS);
+    memset(frequency, 0, sizeof(int) * num_selected * NUM_KEYWORDS);
 
     // I don't like having to freaking triple loop
     // TODO: think about a better way.
     for (it = page.begin(); it != page.end(); ++it) {
         link = *it;
-        for (int i = 0; i < NUM_CATEGORIES; ++i) {
-            for (int j = 0; j < NUM_KEYWORDS; ++j) {
-                offset = link.find(all_keywords[i][j]); 
-                while (offset != string::npos) {
-                    frequency[i][j]++;
-                    link = link.substr(offset + strlen(all_keywords[i][j]));
-                    offset = link.find(all_keywords[i][j]);
+        
+        if (keyfield & ALL) {
+            for (int i = 0; i < num_selected; ++i) {
+                for (int j = 0; j < NUM_KEYWORDS; ++j) {
+                    offset = link.find(all_keywords[i][j]); 
+                    while (offset != string::npos) {
+                        frequency[i][j]++;
+                        link = link.substr(offset + strlen(all_keywords[i][j]));
+                        offset = link.find(all_keywords[i][j]);
+                    }
                 }
             }
+        } else {
+            // if (keyfield & MEDS) {
+            //     for (int i = 0; i < NUM_KEYWORDS; ++i) {
+            //         offset = link.find(meds[i]);
+            //         while (offset != string::npos) {
+            //             frequency[
+            //         }
+            //     }
+            // }
+
+            // if (keyfield & SITE) {
+
+            // }
+
+            // if (keyfield & SHOPPING) {
+
+            // }
+            // if (keyfield & PORN) {
+
+            // }
+            // if (keyfield & HOMEOWNER) {
+
+            // }
+            // if (keyfield & SITE) {
+
+            // }
+            // if (keyfield & SITE) {
+
+            // }
+            // if (keyfield & SITE) {
+
+            // }
+            // if (keyfield & SITE) {
+
+            // }
+            
         }
     }
 
@@ -201,16 +239,17 @@ void inspectKeywords(const forward_list<string>& page)
         cout << "WARNING: this webpage has suspicious keyword repetition!" << endl;
         cout << "If the following keywords do not reflect the nature of your website, " << 
             "please act immediately." << endl;
-    }
-    
-    for (int i = 0; i < NUM_CATEGORIES; ++i) {
-        for (int j = 0; j < NUM_CATEGORIES; ++j) {
-            if (frequency[i][j] > 1) {
-                cout << "The keyword \"" << all_keywords[i][j] << "\" was repeated " <<
-                    frequency[i][j] << " times." << endl;
+
+        for (int i = 0; i < NUM_CATEGORIES; ++i) {
+            for (int j = 0; j < NUM_CATEGORIES; ++j) {
+                if (frequency[i][j] > 1) {
+                    cout << "The keyword \"" << all_keywords[i][j] << "\" was repeated " <<
+                        frequency[i][j] << " times." << endl;
+                }
             }
         }
     }
+    
 
     // printContainer(page);
 }
@@ -313,8 +352,7 @@ bool parseHTTP(ifstream& in, map<string, string>& header)
     switch (text_option) {
     case NONE:
     {
-        if (strncmp(itr->second.c_str(), "text/html", 9) == 0) 
-        {
+        if (strncmp(itr->second.c_str(), "text/html", 9) == 0) {
             length = atoi(header["Content-Length"].c_str());
             unique_ptr<char[]> pBuf(new char[length]);
             in.read(pBuf.get(), length);
@@ -322,8 +360,7 @@ bool parseHTTP(ifstream& in, map<string, string>& header)
             // ret = parseHTML((char *)pBuf.get(), length);
             ret = parseHTML((char *)pBuf.get());
         } 
-        else if (strncmp(itr->second.c_str(), "text/css", 8))
-        {
+        else if (strncmp(itr->second.c_str(), "text/css", 8)) {
             length = atoi(header["Content-Length"].c_str());
             unique_ptr<char[]> pBuf(new char[length]);
             in.read(pBuf.get(), length);
@@ -341,8 +378,7 @@ bool parseHTTP(ifstream& in, map<string, string>& header)
 
         // Repeat reading the buffer and new chunk length until the length is 0.
         // 0 is the value in concordance with the HTTP spec, it signifies the end of the chunks.
-        while (length != 0) 
-        {
+        while (length != 0) {
             unique_ptr<char[]> pBuf(new char[length]);
             in.read(pBuf.get(), length);
              
@@ -389,8 +425,7 @@ bool parseHTTP(ifstream& in, map<string, string>& header)
         // Repeat reading the buffer and new chunk length until the length is 0.
         // 0 is the value in concordance with the HTTP spec, it signifies the end of the chunks.
         ostringstream oss;
-        while (length != 0) 
-        {
+        while (length != 0) {
             totalLength += length;
 
             char *chunk = new char[length];
@@ -541,26 +576,72 @@ void printUsage()
     cout << "options:" << endl;
     cout << "  -c : perform keyword search, specify the target categories." << endl;
     cout << "\tCategories:" << endl;
-    cout << "\tm : medication-themed keywords. Example: viagra" << endl;
-    cout << "\tl : login-themed keywords. Example: password" << endl;
-    cout << "\to : order-themed keywords. Example: discount" << endl;
-    cout << "\tp : pornographic-themed keywords. Example: busty" << endl;
-    cout << "\th : house-themed keywords. Example: mortgage" << endl;
-    cout << "\ts : server-themed keywords. Example: proxy" << endl;
-    cout << "\tg : gambling-themed keywords. Example: blackjack" << endl;
-    cout << "\tf : fitness-themed keywords. Example: antioxidant" << endl;
+    cout << "\tf : fitness-themed keywords.        Example: antioxidant" << endl;
+    cout << "\tg : gambling-themed keywords.       Example: blackjack" << endl;
+    cout << "\th : house-themed keywords.          Example: mortgage" << endl;
+    cout << "\tl : login-themed keywords.          Example: password" << endl;
+    cout << "\tm : medication-themed keywords.     Example: viagra" << endl;
+    cout << "\to : order-themed keywords.          Example: discount" << endl;
+    cout << "\tp : pornographic-themed keywords.   Example: busty" << endl;
+    cout << "\ts : server-themed keywords.         Example: proxy" << endl;
+    cout << "\ta : all categories." << endl;
     cout << "  -h : display help" << endl;
 }
 
 int main(int argc, char **argv) 
 {
     char *cval = NULL;
+    char temp;
     int c;
 
     while ((c = getopt (argc, argv, "c:h ")) != -1) {
         switch (c) {
         case 'c':
             cval = optarg;
+            // fghlmops a
+            for (unsigned int i = 0; i < strlen(cval); ++i) {
+                temp = cval[i];
+                switch (temp) {
+                case 'a':
+                    keyfield |= ALL;
+                    num_selected = NUM_CATEGORIES;
+                    break;
+                case 'f':
+                    keyfield |= FITNESS;
+                    num_selected++;
+                    break;
+                case 'g':
+                    keyfield |= GAMBLING;
+                    num_selected++;
+                    break;
+                case 'h':
+                    keyfield |= HOMEOWNER;
+                    num_selected++;
+                    break;
+                case 'l':
+                    keyfield |= SITE;
+                    num_selected++;
+                    break;
+                case 'm':
+                    keyfield |= MEDS;
+                    num_selected++;
+                    break;
+                case 'o':
+                    keyfield |= SHOPPING;
+                    num_selected++;
+                    break;
+                case 'p':
+                    keyfield |= PORN;
+                    num_selected++;
+                    break;
+                case 's':
+                    keyfield |= SERVER;
+                    num_selected++;
+                    break;
+                default:
+                    break;
+                }
+            }
             break;
         case 'h':
             printUsage();

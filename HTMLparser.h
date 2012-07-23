@@ -38,6 +38,7 @@ const char *protocols[NUM_PROTOS] = {"http://", "https://", "ftp://"};
 #define SERVER     1 << 5
 #define GAMBLING   1 << 6
 #define FITNESS    1 << 7
+#define ALL (MEDS | SITE | SHOPPING | PORN | HOMEOWNER | SERVER | GAMBLING | FITNESS)
 
 const char *meds[NUM_KEYWORDS] = {"hormone", "sildenafil", "medication", "cure",
                         "sexual", "impotence", "levitra", "erection",
@@ -77,6 +78,8 @@ const char **all_keywords[NUM_CATEGORIES] = {meds, site, shopping, porn, homeown
 // 3 functions where it's only needed in the last one.
 // Shitty, I know...
 std::string host;
+unsigned int keyfield = 0;
+unsigned int num_selected = 0;
 
 #endif 
 
