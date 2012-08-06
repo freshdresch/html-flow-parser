@@ -244,145 +244,77 @@ bool parseHTML(char *buf)
     return true;
 }
 
-bool decompress(string compression, unique_ptr<char[]> pBuf, size_t buf_len) 
+void decompress(char *buf, unique_ptr<char[]> pBuf, size_t buf_len, string compression) 
 {
     // zlib should work on the gzip and deflate encodings.
     // Need to test deflate though, can't find one that uses it (so maybe I don't need to worry about it).
-    if (strncmp(compression.c_str(), "gzip", 4) == 0 || strncmp(compression.c_str(), "deflate", 7) == 0) 
-    {
-        int err, ret;
-
-        struct gzip_trailer *gz_trailer = (struct gzip_trailer *)(pBuf.get() + buf_len - GZIP_TRAILER_LEN);
-        uLongf uncomp_len = (uLongf)gz_trailer->uncomp_len;
-        unique_ptr<Bytef[]> pUncomp(new Bytef[uncomp_len]);
-
-        // Set up the z_stream.
-        z_stream d_stream;
-        d_stream.zalloc = Z_NULL;
-        d_stream.zfree = Z_NULL;
-        d_stream.opaque = (voidpf)0;
-
-        d_stream.next_in = (Bytef *)pBuf.get();
-        d_stream.avail_in = (uInt)buf_len;
-
-        // Prep for inflate.
-        err = inflateInit2(&d_stream, 47);
-        if (err != Z_OK) 
-            cout << "inflateInit Error: " << err << endl;
-
-        // Inflate so that it decompresses the whole buffer.
-        d_stream.next_out = pUncomp.get();
-        d_stream.avail_out = uncomp_len;
-        err = inflate(&d_stream, Z_FINISH);
-        if (err < 0)
-            cout << "inflate Error: " << err << ": " << d_stream.msg << endl;
+    if (strncmp(compression.c_str(), "gzip", 4) != 0 && 
+        strncmp(compression.c_str(), "deflate", 7) != 0) {
         
-        // ret = parseHTML((char *)pUncomp.get(), uncomp_len);
-        ret = parseHTML((char *)pUncomp.get());
-        return ret;
-    } 
-    
-    cout << "Error! not in gzip for decompression" << endl;
-    return false;
+        cerr << "Not in gzip for compression!" << endl;
+        exit(EXIT_FAILURE);
+    }
+
+    int err, ret;
+
+    struct gzip_trailer *gz_trailer = (struct gzip_trailer *)(pBuf.get() + buf_len - GZIP_TRAILER_LEN);
+    uLongf uncomp_len = (uLongf)gz_trailer->uncomp_len;
+    unique_ptr<Bytef[]> pUncomp(new Bytef[uncomp_len]);
+
+    // Set up the z_stream.
+    z_stream d_stream;
+    d_stream.zalloc = Z_NULL;
+    d_stream.zfree = Z_NULL;
+    d_stream.opaque = (voidpf)0;
+
+    d_stream.next_in = (Bytef *)pBuf.get();
+    d_stream.avail_in = (uInt)buf_len;
+
+    // Prep for inflate.
+    err = inflateInit2(&d_stream, 47);
+    if (err != Z_OK) 
+        cout << "inflateInit Error: " << err << endl;
+
+    // Inflate so that it decompresses the whole buffer.
+    d_stream.next_out = pUncomp.get();
+    d_stream.avail_out = uncomp_len;
+    err = inflate(&d_stream, Z_FINISH);
+    if (err < 0)
+        cout << "inflate Error: " << err << ": " << d_stream.msg << endl;
+        
+    // ret = parseHTML((char *)pUncomp.get(), uncomp_len);
+    // ret = parseHTML((char *)pUncomp.get());
+    // return ret;
+    return std::move(pUncomp);
 }
 
 bool parseHTTP(ifstream& in, map<string, string>& header)
 {
     map<string, string>::iterator itr;
+    ostringstream oss;
     string line;
-    size_t length; 
 
+    size_t totalLength = 0;
     // Initialized return value to false.
     // Let the returns from decompression and parseHTML turn it into true.
     int ret = false;
 
-    // Tally for what combination of Chunked and/or Compressed it is.
-    int text_option = 0;
-
     // Check to see if it is chunked.
     itr = header.find("Transfer-Encoding");
-    if (itr != header.end()) 
-        text_option += CHUNKED;
+    if (itr != header.end()) {
+        size_t length;
 
-    // Check to see if it is compressed.
-    itr = header.find("Content-Encoding");
-    if (itr != header.end()) 
-        text_option += COMPRESSED;
-
-    // the abnormal { } for the cases are to induce explicit scope
-    // restrictions, so that the unique_ptr is cleaned immediately.
-    switch (text_option) {
-    case NONE:
-    {
-        length = atoi(header["Content-Length"].c_str());
-        unique_ptr<char[]> pBuf(new char[length]);
-        in.read(pBuf.get(), length);
-        //cout.write(buf.get(), length);
-        ret = parseHTML((char *)pBuf.get());
-        break;
-    }
-    case CHUNKED:
-    {
         // Get the first chunk length.
         getline(in,line);
         length = strtoul(line.c_str(),NULL,16);
 
         // Repeat reading the buffer and new chunk length until the length is 0.
         // 0 is the value in concordance with the HTTP spec, it signifies the end of the chunks.
-        while (length != 0) {
-            unique_ptr<char[]> pBuf(new char[length]);
-            in.read(pBuf.get(), length);
-             
-            // Consume the trailing CLRF before the length.
-            getline(in,line);
-
-            // Consume the new chunk length or the terminating zero.
-            getline(in,line);
-
-            // I have to use strtoul with base 16 because the HTTP spec
-            // says the chunked encoding length is presented in hex.
-            length = strtoul(line.c_str(),NULL,16);
-
-            //cout.write(buf,length);
-            // parseHTML((char *)pBuf.get(), length);
-            parseHTML((char *)pBuf.get());
-        }
-        
-        // Once it gets to this point, the chunked length last fed was 0
-        // Get last CLRF and quit
-        getline(in,line);
-
-        // TODO: Return value for this. Multiple parseHTML calls equates to...?
-        ret = true;
-        break;
-    }
-    case COMPRESSED:
-    {
-        // Read the compressed data into a buffer and ship off to be decompressed.
-        length = atoi(header["Content-Length"].c_str());
-        unique_ptr<char[]> pBuf(new char[length]);
-        in.read(pBuf.get(), length);
-        ret = decompress(header["Content-Encoding"], std::move(pBuf), length);
-        break;
-    }
-    case BOTH:
-    {
-        size_t totalLength = 0;
-        
-        // Get the first chunk length.
-        getline(in,line);
-        length = strtoul(line.c_str(),NULL,16);
-
-        // Repeat reading the buffer and new chunk length until the length is 0.
-        // 0 is the value in concordance with the HTTP spec, it signifies the end of the chunks.
-        ostringstream oss;
         while (length != 0) {
             totalLength += length;
 
             char *chunk = new char[length];
-            // unique_ptr<char[]> pChunk(new char[length]);
             in.read(chunk, length);
-            // oss << chunk;
             oss.write(chunk, length);
 
             // Consume the trailing CLRF before the length.
@@ -401,23 +333,143 @@ bool parseHTTP(ifstream& in, map<string, string>& header)
         // Once it gets to this point, the chunked length last fed was 0
         // Get last CLRF and quit
         getline(in,line);
+    } 
+    else {
+        totalLength = atoi(header["Content-Length"].c_str());
+        char *buf = new char[totalLength];
+        in.read(buf, totalLength);
+        oss.write(buf, totalLength);
+        delete [] buf;
+    }
 
-        if (oss.str().size() != totalLength) {
-            cout << "Error! stringstream length" << endl;
-            return false;
-        }
+    // char *buffer = new char[totalLength + 1];
+    // memcpy(pBuf.get(), oss.str().c_str(), totalLength + 1);
 
-        unique_ptr<char[]> pBuf(new char[totalLength + 1]);
-        memcpy(pBuf.get(), oss.str().c_str(), totalLength + 1);
+    // unique_ptr<char[]> temp(new char[totalLength + 1]);
+    // memcpy(temp.get(), oss.str().c_str(), totalLength + 1);
+    
+    // unique_ptr<char[]> pBuf;
+    itr = header.find("Content-Encoding");
+    if (itr != header.end()) {
+        // pBuf = decompress(header["Content-Encoding"], std::move(temp), totalLength);
+    }
+    else {
+        // pBuf = std::move(temp);
+    }
+    
+    return false;
+    // return parseHTML((char *)pBuf.get());
+
+
+    // the abnormal { } for the cases are to induce explicit scope
+    // restrictions, so that the unique_ptr is cleaned immediately.
+    // switch (text_option) {
+    // case NONE:
+    // {
+    //     length = atoi(header["Content-Length"].c_str());
+    //     unique_ptr<char[]> pBuf(new char[length]);
+    //     in.read(pBuf.get(), length);
+    //     //cout.write(buf.get(), length);
+    //     ret = parseHTML((char *)pBuf.get());
+    //     break;
+    // }
+    // case CHUNKED:
+    // {
+    //     // Get the first chunk length.
+    //     getline(in,line);
+    //     length = strtoul(line.c_str(),NULL,16);
+
+    //     // Repeat reading the buffer and new chunk length until the length is 0.
+    //     // 0 is the value in concordance with the HTTP spec, it signifies the end of the chunks.
+    //     while (length != 0) {
+    //         unique_ptr<char[]> pBuf(new char[length]);
+    //         in.read(pBuf.get(), length);
+             
+    //         // Consume the trailing CLRF before the length.
+    //         getline(in,line);
+
+    //         // Consume the new chunk length or the terminating zero.
+    //         getline(in,line);
+
+    //         // I have to use strtoul with base 16 because the HTTP spec
+    //         // says the chunked encoding length is presented in hex.
+    //         length = strtoul(line.c_str(),NULL,16);
+
+    //         //cout.write(buf,length);
+    //         // parseHTML((char *)pBuf.get(), length);
+    //         parseHTML((char *)pBuf.get());
+    //     }
         
-        ret = decompress(header["Content-Encoding"], std::move(pBuf), totalLength);
-        break;
-    }
-    default:
-        break;
-    }
+    //     // Once it gets to this point, the chunked length last fed was 0
+    //     // Get last CLRF and quit
+    //     getline(in,line);
 
-    return ret;
+    //     // TODO: Return value for this. Multiple parseHTML calls equates to...?
+    //     ret = true;
+    //     break;
+    // }
+    // case COMPRESSED:
+    // {
+    //     // Read the compressed data into a buffer and ship off to be decompressed.
+    //     length = atoi(header["Content-Length"].c_str());
+    //     unique_ptr<char[]> pBuf(new char[length]);
+    //     in.read(pBuf.get(), length);
+    //     ret = decompress(header["Content-Encoding"], std::move(pBuf), length);
+    //     break;
+    // }
+    // case BOTH:
+    // {
+    //     size_t totalLength = 0;
+        
+    //     // Get the first chunk length.
+    //     getline(in,line);
+    //     length = strtoul(line.c_str(),NULL,16);
+
+    //     // Repeat reading the buffer and new chunk length until the length is 0.
+    //     // 0 is the value in concordance with the HTTP spec, it signifies the end of the chunks.
+    //     ostringstream oss;
+    //     while (length != 0) {
+    //         totalLength += length;
+
+    //         char *chunk = new char[length];
+    //         // unique_ptr<char[]> pChunk(new char[length]);
+    //         in.read(chunk, length);
+    //         // oss << chunk;
+    //         oss.write(chunk, length);
+
+    //         // Consume the trailing CLRF before the length.
+    //         getline(in,line);
+
+    //         // Consume the new chunk length or the terminating zero.
+    //         getline(in,line);
+
+    //         // I have to use strtoul with base 16 because the HTTP spec
+    //         // says the chunked encoding length is presented in hex.
+    //         length = strtoul(line.c_str(),NULL,16);
+
+    //         delete [] chunk;
+    //     }
+
+    //     // Once it gets to this point, the chunked length last fed was 0
+    //     // Get last CLRF and quit
+    //     getline(in,line);
+
+    //     if (oss.str().size() != totalLength) {
+    //         cout << "Error! stringstream length" << endl;
+    //         return false;
+    //     }
+
+    //     unique_ptr<char[]> pBuf(new char[totalLength + 1]);
+    //     memcpy(pBuf.get(), oss.str().c_str(), totalLength + 1);
+        
+    //     ret = decompress(header["Content-Encoding"], std::move(pBuf), totalLength);
+    //     break;
+    // }
+    // default:
+    //     break;
+    // }
+
+    // return ret;
 }
 
 void getResponse(char *flows[])
