@@ -39,8 +39,9 @@ template<typename T>
 void printContainer(const T& container) 
 {
     typename T::const_iterator it;
-    for (it = container.begin(); it != container.end(); ++it) 
+    for (it = container.begin(); it != container.end(); ++it) {
         cout << *it << endl;
+    }
     cout << endl;
 }
 
@@ -86,10 +87,12 @@ void inspectLinks(const forward_list<string>& page)
 
             if (remote) {
                 remote_links.push_back(link);
-            } else {
+            } 
+            else {
                 // ignore in-page references
-                if (strncmp(link.c_str(),"#",1) != 0)
+                if (strncmp(link.c_str(),"#",1) != 0) {
                     local_links.push_back(link);
+                }
             }
             
             remote = false;
@@ -224,27 +227,27 @@ bool parseHTML(char *buf)
     istringstream iss(buf);
     string str;
 
+    if (!iss.good()) {
+        return false;
+    }
 
     // Put each line in the forward iterator.
     // I put the buffer in the string stream to have access to getline.
     it = page.before_begin();
-    if (iss.good()) {
-        while(!iss.eof()) {
-            getline(iss,str);
-            page.emplace_after(it, str);
-        }
-    } else {
-        return false;
-    }
-    
 
-    // inspectLinks(page);
+    while(!iss.eof()) {
+        getline(iss,str);
+        page.emplace_after(it, str);
+    }
+
+    // Perform tests.
+    inspectLinks(page);
     inspectKeywords(page);
 
     return true;
 }
 
-void decompress(char *buf, unique_ptr<char[]> pBuf, size_t buf_len, string compression) 
+char *decompress(unique_ptr<char[]> pBuf, size_t buf_len, string compression) 
 {
     // zlib should work on the gzip and deflate encodings.
     // Need to test deflate though, can't find one that uses it (so maybe I don't need to worry about it).
@@ -255,7 +258,7 @@ void decompress(char *buf, unique_ptr<char[]> pBuf, size_t buf_len, string compr
         exit(EXIT_FAILURE);
     }
 
-    int err, ret;
+    int err;
 
     struct gzip_trailer *gz_trailer = (struct gzip_trailer *)(pBuf.get() + buf_len - GZIP_TRAILER_LEN);
     uLongf uncomp_len = (uLongf)gz_trailer->uncomp_len;
@@ -271,21 +274,22 @@ void decompress(char *buf, unique_ptr<char[]> pBuf, size_t buf_len, string compr
     d_stream.avail_in = (uInt)buf_len;
 
     // Prep for inflate.
-    err = inflateInit2(&d_stream, 47);
-    if (err != Z_OK) 
-        cout << "inflateInit Error: " << err << endl;
+    if ((err = inflateInit2(&d_stream, 47)) != Z_OK) {
+        cerr << "inflateInit Error: " << err << endl;
+        exit(EXIT_FAILURE);
+    }
 
     // Inflate so that it decompresses the whole buffer.
     d_stream.next_out = pUncomp.get();
     d_stream.avail_out = uncomp_len;
-    err = inflate(&d_stream, Z_FINISH);
-    if (err < 0)
-        cout << "inflate Error: " << err << ": " << d_stream.msg << endl;
-        
-    // ret = parseHTML((char *)pUncomp.get(), uncomp_len);
-    // ret = parseHTML((char *)pUncomp.get());
-    // return ret;
-    return std::move(pUncomp);
+    if ((err = inflate(&d_stream, Z_FINISH)) < 0) {
+        cerr << "inflate Error: " << err << ": " << d_stream.msg << endl;
+        exit(EXIT_FAILURE);
+    }
+
+    // The only reason we feel safe returning a char * is that it is 
+    // immediately getting claimed by a unique_ptr.
+    return (char *)pUncomp.release();
 }
 
 bool parseHTTP(ifstream& in, map<string, string>& header)
@@ -293,11 +297,7 @@ bool parseHTTP(ifstream& in, map<string, string>& header)
     map<string, string>::iterator itr;
     ostringstream oss;
     string line;
-
     size_t totalLength = 0;
-    // Initialized return value to false.
-    // Let the returns from decompression and parseHTML turn it into true.
-    int ret = false;
 
     // Check to see if it is chunked.
     itr = header.find("Transfer-Encoding");
@@ -335,6 +335,7 @@ bool parseHTTP(ifstream& in, map<string, string>& header)
         getline(in,line);
     } 
     else {
+        // It's not chunked. That means the total length is given.
         totalLength = atoi(header["Content-Length"].c_str());
         char *buf = new char[totalLength];
         in.read(buf, totalLength);
@@ -342,137 +343,27 @@ bool parseHTTP(ifstream& in, map<string, string>& header)
         delete [] buf;
     }
 
-    // char *buffer = new char[totalLength + 1];
-    // memcpy(pBuf.get(), oss.str().c_str(), totalLength + 1);
-
-    // unique_ptr<char[]> temp(new char[totalLength + 1]);
-    // memcpy(temp.get(), oss.str().c_str(), totalLength + 1);
+    // Put our payload in a temporary buffer.
+    // We don't know if it's compressed yet.
+    unique_ptr<char[]> temp(new char[totalLength + 1]);
+    memcpy(temp.get(), oss.str().c_str(), totalLength + 1);
     
-    // unique_ptr<char[]> pBuf;
+    unique_ptr<char[]> pBuf;
+
+    // If it's compressed, decompress it and store in our final buffer pBuf.
+    // Otherwise, temp already holds the payload.  Transfer to pBuf.
     itr = header.find("Content-Encoding");
     if (itr != header.end()) {
-        // pBuf = decompress(header["Content-Encoding"], std::move(temp), totalLength);
+        pBuf = unique_ptr<char[]>(decompress(move(temp), totalLength, header["Content-Encoding"]));
     }
     else {
-        // pBuf = std::move(temp);
+        pBuf = move(temp);
     }
     
-    return false;
-    // return parseHTML((char *)pBuf.get());
-
-
-    // the abnormal { } for the cases are to induce explicit scope
-    // restrictions, so that the unique_ptr is cleaned immediately.
-    // switch (text_option) {
-    // case NONE:
-    // {
-    //     length = atoi(header["Content-Length"].c_str());
-    //     unique_ptr<char[]> pBuf(new char[length]);
-    //     in.read(pBuf.get(), length);
-    //     //cout.write(buf.get(), length);
-    //     ret = parseHTML((char *)pBuf.get());
-    //     break;
-    // }
-    // case CHUNKED:
-    // {
-    //     // Get the first chunk length.
-    //     getline(in,line);
-    //     length = strtoul(line.c_str(),NULL,16);
-
-    //     // Repeat reading the buffer and new chunk length until the length is 0.
-    //     // 0 is the value in concordance with the HTTP spec, it signifies the end of the chunks.
-    //     while (length != 0) {
-    //         unique_ptr<char[]> pBuf(new char[length]);
-    //         in.read(pBuf.get(), length);
-             
-    //         // Consume the trailing CLRF before the length.
-    //         getline(in,line);
-
-    //         // Consume the new chunk length or the terminating zero.
-    //         getline(in,line);
-
-    //         // I have to use strtoul with base 16 because the HTTP spec
-    //         // says the chunked encoding length is presented in hex.
-    //         length = strtoul(line.c_str(),NULL,16);
-
-    //         //cout.write(buf,length);
-    //         // parseHTML((char *)pBuf.get(), length);
-    //         parseHTML((char *)pBuf.get());
-    //     }
-        
-    //     // Once it gets to this point, the chunked length last fed was 0
-    //     // Get last CLRF and quit
-    //     getline(in,line);
-
-    //     // TODO: Return value for this. Multiple parseHTML calls equates to...?
-    //     ret = true;
-    //     break;
-    // }
-    // case COMPRESSED:
-    // {
-    //     // Read the compressed data into a buffer and ship off to be decompressed.
-    //     length = atoi(header["Content-Length"].c_str());
-    //     unique_ptr<char[]> pBuf(new char[length]);
-    //     in.read(pBuf.get(), length);
-    //     ret = decompress(header["Content-Encoding"], std::move(pBuf), length);
-    //     break;
-    // }
-    // case BOTH:
-    // {
-    //     size_t totalLength = 0;
-        
-    //     // Get the first chunk length.
-    //     getline(in,line);
-    //     length = strtoul(line.c_str(),NULL,16);
-
-    //     // Repeat reading the buffer and new chunk length until the length is 0.
-    //     // 0 is the value in concordance with the HTTP spec, it signifies the end of the chunks.
-    //     ostringstream oss;
-    //     while (length != 0) {
-    //         totalLength += length;
-
-    //         char *chunk = new char[length];
-    //         // unique_ptr<char[]> pChunk(new char[length]);
-    //         in.read(chunk, length);
-    //         // oss << chunk;
-    //         oss.write(chunk, length);
-
-    //         // Consume the trailing CLRF before the length.
-    //         getline(in,line);
-
-    //         // Consume the new chunk length or the terminating zero.
-    //         getline(in,line);
-
-    //         // I have to use strtoul with base 16 because the HTTP spec
-    //         // says the chunked encoding length is presented in hex.
-    //         length = strtoul(line.c_str(),NULL,16);
-
-    //         delete [] chunk;
-    //     }
-
-    //     // Once it gets to this point, the chunked length last fed was 0
-    //     // Get last CLRF and quit
-    //     getline(in,line);
-
-    //     if (oss.str().size() != totalLength) {
-    //         cout << "Error! stringstream length" << endl;
-    //         return false;
-    //     }
-
-    //     unique_ptr<char[]> pBuf(new char[totalLength + 1]);
-    //     memcpy(pBuf.get(), oss.str().c_str(), totalLength + 1);
-        
-    //     ret = decompress(header["Content-Encoding"], std::move(pBuf), totalLength);
-    //     break;
-    // }
-    // default:
-    //     break;
-    // }
-
-    // return ret;
+    return parseHTML((char *)pBuf.get());
 }
 
-void getResponse(char *flows[])
+void getResponse(char **flows)
 {
     map<string, string> header;
     ifstream in;
@@ -481,8 +372,6 @@ void getResponse(char *flows[])
     size_t offset;
     size_t host_off;
 
-
-    // const char *flows[] = {flowOne, flowTwo}; 
     int outbound;
     int inbound;
     char portOne[5], portTwo[5];
@@ -500,76 +389,82 @@ void getResponse(char *flows[])
     if (atoi(portOne) == tcp_port) {
         outbound = 0;
         inbound = 1;
-    } else if (atoi(portTwo) == tcp_port) {
+    } 
+    else if (atoi(portTwo) == tcp_port) {
         inbound = 0;
         outbound = 1;
-    } else {
-        // not communication between the server and the client
-        // quit
-        cout << "No communication to the website's server. Exiting..." << endl;
-        exit(0);
+    } 
+    else {
+        // There's no communication between a server and client.
+        // I've really only seen this happen with some voodoo magic
+        // from google-cached pages.
+        cerr << "No communication to the website's server. Exiting..." << endl;
+        exit(EXIT_SUCCESS);
     }
 
     // Get the hostname
     in.open(flows[outbound]);
-    if (in.is_open()) {
-        while (!in.eof()) {
-            // search for a GET request that specifies the host
-            // should be the first line, so quit after we find it
-            getline(in, line);
+    if (!in.is_open()) {
+        cerr << "Error opening outbound flow!" << endl;
+        exit(EXIT_FAILURE);
+    }
 
-            host_off = line.find("Host: ");
-            if (host_off != string::npos) {
-                host = line.substr(host_off + 6);
-
-                host_off = host.find("\r");
-                if (host_off != string::npos) 
-                    host = host.substr(0,host_off);
-                
-                break;
-            }
+    while (!in.eof()) {
+        // search for a GET request that specifies the host
+        // should be the first line, so quit after we find it
+        getline(in, line);
+        
+        host_off = line.find("Host: ");
+        if (host_off != string::npos) {
+            host = line.substr(host_off + 6);
+            
+            host_off = host.find("\r");
+            if (host_off != string::npos) 
+                host = host.substr(0,host_off);
+            
+            break;
         }
     }
     in.close();
 
     // Let's parse some replies!
     in.open(flows[inbound]);
-    if (in.is_open()) {
-        while (!in.eof()) {
-            // Search for the "HTTP/1.1 200 OK" line.
-            getline(in, line);
-
-            offset = line.find("HTTP/1.1 200 OK");
-            if (offset != string::npos) { 
-                // We found the reply.
-                header["HTTP/1.1"] = "200 OK";
-
-                // Read the HTTP header labels and values into our map.
-                // The header ending is denoted by a carriage return '\r'.
-                getline(in, line);
-                while (line != "\r") {
-                    offset = line.find(":");
-                    header[line.substr(0, offset)] = line.substr(offset + 2);
-                    getline(in, line);
-                }
-
-                // Print the http header
-                // map<string, string>::iterator it;
-                // for (it = header.begin(); it != header.end(); ++it)
-                //     cout << it->first << ": " << it->second << endl;
-                // cout << endl;
-
-                // Send the HTTP header and our ifstream to parseHTTP.
-                parseHTTP(in, header);
-
-                // Clear the header map for the next reply found in the file.
-                header.clear();
-            }
-        }
-    } else  {
-        cerr << "Error! File did not open correctly." << endl;
+    if (!in.is_open()) {
+        cerr << "Error opening inbound flow!" << endl;
+        exit(EXIT_FAILURE);
     }
 
+    while (!in.eof()) {
+        // Search for the "HTTP/1.1 200 OK" line.
+        getline(in, line);
+
+        offset = line.find("HTTP/1.1 200 OK");
+        if (offset != string::npos) { 
+            // We found the reply.
+            header["HTTP/1.1"] = "200 OK";
+
+            // Read the HTTP header labels and values into our map.
+            // The header ending is denoted by a carriage return '\r'.
+            getline(in, line);
+            while (line != "\r") {
+                offset = line.find(":");
+                header[line.substr(0, offset)] = line.substr(offset + 2);
+                getline(in, line);
+            }
+
+            // Print the http header
+            // map<string, string>::iterator it;
+            // for (it = header.begin(); it != header.end(); ++it)
+            //     cout << it->first << ": " << it->second << endl;
+            // cout << endl;
+
+            // Send the HTTP header and our ifstream to parseHTTP.
+            parseHTTP(in, header);
+
+            // Clear the header map for the next reply found in the file.
+            header.clear();
+        }
+    }
     in.close();
 }
 
@@ -665,7 +560,8 @@ int main(int argc, char **argv)
     if (argc == optind + 2) {
         flows[0] = argv[optind];
         flows[1] = argv[optind+1];
-    } else {
+    } 
+    else {
         cerr << "Too many args!" << endl;
         printUsage();
         return EXIT_FAILURE;
