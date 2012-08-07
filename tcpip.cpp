@@ -199,17 +199,19 @@ void tcpip::close_file()
             exit(EXIT_FAILURE);
         }
 
+        // Extract the source and destination for housekeeping.
         source = myflow.filename().substr(0, offset);
         destination = myflow.filename().substr(offset+1);
         demux.finished_flows.push_back(std::make_pair(source,destination));
 
-        // check and see if it's paired file is also in
+
         std::pair<std::string, std::string> flow_pair;
         finished_flows_t::iterator itr;
 
         flow_pair = std::make_pair(destination, source);
         itr = demux.finished_flows.begin();
 
+        // check and see if it's paired file is also finished.
         for (; itr != demux.finished_flows.end(); ++itr) {
             if (*itr == flow_pair) {
                 found = true;
@@ -230,10 +232,9 @@ void tcpip::close_file()
                 demux.finished_flows[itr - demux.finished_flows.begin()].first + 
                 "-" + demux.finished_flows[itr - demux.finished_flows.begin()].second;
 
-            // call HTMLparser on the inbound-outbound pair of flows
-            const std::string command = "./HTMLparser " + flow_pathname + " " + file_pair;
-            int ret = system(command.c_str());
-            if (ret == -1) {
+            // call the flow parser on the inbound-outbound pair of flows
+            const std::string command = "./html_flow_parser " + flow_pathname + " " + file_pair;
+            if (system(command.c_str()) == -1) {
                 perror("system");
                 exit(EXIT_FAILURE);
             }
