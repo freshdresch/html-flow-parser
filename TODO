@@ -1,6 +1,14 @@
-Look into newline issue.
+More Immediately:
 
-Think about regex by chance.
+Try and figure out a way to remedy calling tcpflow first.  Perhaps see if the HFP
+can start tcpflow.  That is also important not just because HFP is the point, but 
+the current arguments to HFP will need to hard coded into tcpflow's system call,
+which is terrible.
+
+
+Future stuff:
+
+Regular expressions.
 
 Think about way to generalize the different html tests so they can be "inserted" like a module.
 Also, look to refactor the parsing flow.
@@ -13,7 +21,4 @@ Do a literature survey on black-hat seo. See if there are any techniques out the
 people have published. Also, look for more compromised sites so I can get a large dataset.
 
 Work out return values for the two cases in the http parsing.
-
-I don't like that we call tcpflow instead of http_parser, even though http_parser is the 
-whole point of the program.
 
