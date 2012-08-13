@@ -88,8 +88,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-> Please see `PARSER LICENSE` for more details.
+> Please see `PARSER-LICENSE` for more details.
 
 The original license of `tcpflow` is also included.
 
-> Please see `TCPFLOW LICENSE` for more details.
+> Please see `TCPFLOW-LICENSE` for more details.
